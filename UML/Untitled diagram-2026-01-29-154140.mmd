@@ -1,0 +1,41 @@
+classDiagram
+    class User{
+        -String name
+        +getName():String
+        +sendNotification(Chat, Message):void 
+    }
+    class Chat{
+      -List[Message] listOfMessages
+      -ChatLister cl
+      -Strign chatName
+      +sendMessage(Message):void
+      +getHistory():List[Message]
+      +getName():String
+    }
+    class ChatLister{
+      -HashMap[Chat, User]
+      +userIsPartOf(User):List[Chat]
+      +joinChat(User):void
+      +getAllChats():List[Chat]
+      +createChat(User, name):void
+    }
+    class Message {
+        -User u
+        -LocalDateTime createTime
+        +getUser():User
+        +getTime():LocalDateTime
+    }
+    class ImgMessage {
+        -Img img
+        +getImg():Img
+    }
+    class TextMessage {
+        -String text;
+        +getText():String
+    }
+    Chat --o ChatLister
+    User --* ChatLister
+    User o-- Message
+    Message --o Chat
+    TextMessage --|> Message
+    ImgMessage --|> Message
