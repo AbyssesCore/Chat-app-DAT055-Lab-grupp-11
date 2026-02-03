@@ -23,6 +23,7 @@ class Controller {
 		
 		addChat = new JButton("Create chat");
 		
+		
 		send.addActionListener(e -> {
 			
 			try {

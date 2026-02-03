@@ -66,8 +66,12 @@ class User implements UserInterface {
 	private static int userCount;
 	final private int persId;
 	
-	User() {
+	public String name;
+	
+	User(String name) {
 		persId = userCount++;
+		
+		this.name = name;
 	}
 	
 	public int getID() {
@@ -75,7 +79,7 @@ class User implements UserInterface {
 	}
 	
 	public String getName() {
-		return "None";
+		return name;
 	}
 	
 	public void sendNotification(Message msg) {
@@ -262,11 +266,6 @@ class ChatLister {
 	}
 	
 	public Chat createChat(UserInterface u, String ChatName) {
-		
-		/*if (chatsToUserMap.containsKey(ch)) {
-			return false;
-		}*/
-		
 		Chat nc = new Chat(this, ChatName);
 		List<UserInterface> nui = new ArrayList<UserInterface>();
 		

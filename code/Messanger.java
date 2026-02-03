@@ -2,23 +2,51 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.*;
 
+import java.awt.event.*;
+
 import java.io.*;
 
 
-class Messanger {
-	public static void main (String[] args){
-		JFrame jf = new JFrame("Drawing game");
+class Messanger extends JFrame{
+	JFrame jf;
+	
+	Model model;
+	
+	View view;
+	
+	Controller controller;
+	LogInController lic;
+	
+	
+	Messanger() {
+		jf = new JFrame("Drawing game");
 		
 		jf.setSize(650, 300);
+		
     	jf.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		
-		User u = new User();
 		
-		Model model = new Model(u);
+		loggingScreen();
 		
-		View view = new View(model);
+	}
+	
+	public static void main (String[] args){
+		new Messanger();
+	}
+	
+	private void clearScreen() {
+		jf.getContentPane().removeAll();
+		jf.repaint();
+	}
+	
+	public void loggedIn(User u) {
+		clearScreen();
 		
-		Controller controller = new Controller(model, view);
+		model = new Model(u);
+		
+		view = new View(model);
+		
+		controller = new Controller(model, view);
 		
 		controller.input.setLayout(new BorderLayout());
 		
@@ -57,6 +85,22 @@ class Messanger {
 		jf.add(textScroller);
 		
 		jf.add(chatsDisplay, BorderLayout.WEST);
+		
+		jf.add(lic.logOut, BorderLayout.EAST);
+		
+		jf.setVisible(true);
+	}
+	
+	public void loggingScreen() {
+		clearScreen();
+		
+		jf.setLayout(new BorderLayout());
+		
+		lic = new LogInController(this);
+		
+		jf.add(lic.logInInput, BorderLayout.NORTH);
+		
+		jf.add(lic.logIn, BorderLayout.EAST);
 		
 		jf.setVisible(true);
 	}
