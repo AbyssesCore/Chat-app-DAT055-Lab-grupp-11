@@ -71,25 +71,7 @@ class ServerModel {
 			return null;
 		}
 		
-		try(PreparedStatement st = conn.prepareStatement(
-            // replace this with something more useful
-            "SELECT display_name FROM app_user WHERE username = ? AND password_hash = ?"
-            );){
-            
-            st.setString(1, name);
-			
-			st.setString(2, password);
-			
-            ResultSet rs = st.executeQuery();
-            
-            if(rs.next()) {
-				
-				return cl.createChat(u, chatName);
-            }
-			else {
-              return null; 
-            }
-        }
+		cl.createChat(u, chatName);
 	}
 	
 }
