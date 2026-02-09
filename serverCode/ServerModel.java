@@ -3,65 +3,95 @@ import java.time.LocalDateTime;
 import javax.swing.*;
 import java.util.*;
 
-class Model {
-	
+import java.sql.*;
+
+class ServerModel {
 	ChatLister cl;
-	User u;
 	
-	Chat selectedChat = null;
+	HashSet<User> onlineUsers = new HashSet<User>();
 	
-	Model (User u) {
+	private Connection conn;
+	
+	ServerModel () throws SQLException, ClassNotFoundException {
 		cl = new ChatLister();
-		this.u = u;
 		
+		Class.forName("org.postgresql.Driver");
+		
+		Properties props = new Properties();
+        props.setProperty("user", "postgres");
+        props.setProperty("password", "postgres");
+		
+		conn = DriverManager.getConnection("jdbc:postgresql://localhost/", props);
 	}
 	
-	public UserInterface getUser() {
-		return u;
-	}
-	
-	public boolean selectChat(Chat c) {
-		System.out.print(selectedChat + " -> ");
-		if (c == selectedChat) {
-			return false;
-		}
-		selectedChat = c;
-		
-		System.out.println(selectedChat);
-		
-		return true;
-	}
-	
-	public List<Message> getCurrentChatHistory() throws Exception{
-		if (selectedChat == null) {
-			throw new Exception("no chat selected");
+	public User getOnlineUserByName(String name) {
+		for (User u : onlineUsers) {
+			System.out.println(u.getName() + " " + name);
+			
+			if (u.getName().equals(name)) {
+				return u;
+			}
 		}
 		
-		return selectedChat.getHistory();
+		return null;
 	}
 	
-	public String getCurrentChatName() throws Exception{
-		if (selectedChat == null) {
-			throw new Exception("no chat selected");
+	public User logIn(String name, String password) throws SQLException, ClassNotFoundException {
+		try(PreparedStatement st = conn.prepareStatement(
+            // replace this with something more useful
+            "SELECT display_name FROM app_user WHERE username = ? AND password_hash = ?"
+            );){
+            
+            st.setString(1, name);
+			
+			st.setString(2, password);
+			
+            ResultSet rs = st.executeQuery();
+            
+            if(rs.next()) {
+				User u = new User(rs.getString("display_name"));
+				
+				onlineUsers.add(u);
+				
+				return u;
+            }
+			else {
+              return null; 
+            }
+        }
+	}
+	
+	public Chat createChat(String author, String chatName) {
+		User u = getOnlineUserByName(author);
+		
+		System.out.println(u);
+		
+		if (u == null) {
+			
+			return null;
 		}
 		
-		return selectedChat.getName();
+		try(PreparedStatement st = conn.prepareStatement(
+            // replace this with something more useful
+            "SELECT display_name FROM app_user WHERE username = ? AND password_hash = ?"
+            );){
+            
+            st.setString(1, name);
+			
+			st.setString(2, password);
+			
+            ResultSet rs = st.executeQuery();
+            
+            if(rs.next()) {
+				
+				return cl.createChat(u, chatName);
+            }
+			else {
+              return null; 
+            }
+        }
 	}
 	
-	public Chat addChat(String chatName) {
-		return cl.createChat(u, chatName);
-	}
-	
-	public Message sendMessage(String text) throws Exception{
-		if (selectedChat == null) {
-			throw new Exception("no chat selected");
-		}
-		
-		Message msg = new TextMessage(u, text);
-		selectedChat.sendMessage(msg);
-		
-		return msg.clone();
-	}
 }
 
 interface UserInterface {
