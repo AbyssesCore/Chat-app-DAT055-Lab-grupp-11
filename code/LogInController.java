@@ -1,6 +1,7 @@
 import javax.swing.*;
-import java.awt.*;
 import java.util.*;
+
+import java.time.LocalDateTime;
 
 import java.nio.file.*;
 import java.net.URLDecoder;
@@ -19,14 +20,11 @@ class LogInController {
 	public JTextArea passwordInput;
 	public JButton logIn;
 	
-	public JButton logOut;
-	
 	public Messanger msngr;
 	
 	private HttpServer clientSocket;
 	
 	LogInController(Messanger msngr) {
-	
 		
 		this.msngr = msngr;
 		
@@ -37,6 +35,44 @@ class LogInController {
 		logIn = new JButton();
 		
 		logIn.addActionListener(e -> {
+			try {
+				URL url = new URL("http://localhost:228/checkLogIn");
+				
+				HttpURLConnection con2 = (HttpURLConnection) url.openConnection();
+				con2.setRequestMethod("POST");
+				
+				con2.setDoOutput(true);
+				
+				con2.setRequestProperty("Content-Type", "application/text");
+				
+				DataOutputStream os = new DataOutputStream(con2.getOutputStream());
+				
+				messageTranslater msgt = new messageTranslater();
+				
+				msgt.addLocalDateTime(LocalDateTime.now());
+				
+				msgt.addString("asd");
+				
+				msgt.addString("asd"); // no password text input yet
+				
+				os.writeBytes(msgt.getMessage());
+				
+				os.flush();
+				
+				con2.setConnectTimeout(5000);
+				con2.setReadTimeout(5000);
+				
+				int status = con2.getResponseCode();
+				
+				if (status != 200)
+					return;
+				
+				con2.disconnect();
+			}
+			catch (Exception err) {
+				System.out.println(err);
+			}
+			
 			try {
 				URL url = new URL("http://localhost:228/logIn");
 				
@@ -49,46 +85,48 @@ class LogInController {
 				
 				DataOutputStream os = new DataOutputStream(con.getOutputStream());
 				
-				String logInName = logInInput.getText();
+				messageTranslater msgt = new messageTranslater();
 				
-				String password = "asd"; // no password text input yet
+				msgt.addString(logInInput.getText());
 				
-				os.writeBytes(((char)(logInName.length() & 0xFF) + "" + (char)(password.length() & 0xFF) ) + logInName + password);
+				msgt.addString("asd"); // no password text input yet
+				
+				os.writeBytes(msgt.getMessage());
 				
 				os.flush();
 				
 				con.setConnectTimeout(5000);
 				con.setReadTimeout(5000);
 				
-				BufferedReader in = new BufferedReader( new InputStreamReader(con.getInputStream()));
-				
-				String inputLine;
-				
-				StringBuffer content = new StringBuffer();
-				
-				while ((inputLine = in.readLine()) != null) {
-					content.append(inputLine);
-				}
-				
-				in.close();
-				
 				int status = con.getResponseCode();
 				
-				con.disconnect();
+				System.out.println(status);
 				
 				if (status == 200) {
-					msngr.loggedIn(new User(content.toString()));
+					InputStream is = con.getInputStream();
+					try {
+						String name = msgt.translateString(is);
+						
+						long id = msgt.translateLong(is);
+						
+						System.out.println("Name: " + name  + " ID: " + id);
+						
+						
+						msngr.loggedIn(new User(name, id));
+					}
+					catch (Exception err) {
+						err.printStackTrace();
+						return;
+					}
+					
 				}
+				
+				con.disconnect();
 			}
 			catch (Exception err) {
 				System.out.println(err);
 			}
-		});
-		
-		logOut = new JButton("Log out");
-		
-		logOut.addActionListener(e -> {
-			msngr.loggingScreen();
+			
 		});
 		
 	}

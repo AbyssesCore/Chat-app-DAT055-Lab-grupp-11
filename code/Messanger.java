@@ -17,14 +17,23 @@ class Messanger extends JFrame{
 	Controller controller;
 	LogInController lic;
 	
-	
 	Messanger() {
-		jf = new JFrame("Drawing game");
+		jf = new JFrame("Messanger");
 		
 		jf.setSize(650, 300);
 		
     	jf.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 		
+		jf.addWindowListener(new WindowAdapter() {
+			public void windowClosing(WindowEvent winEvt) {
+				
+				if (controller != null) {
+					controller.logOut();
+				}
+				
+				System.exit(0);
+			}
+		});
 		
 		loggingScreen();
 		
@@ -86,7 +95,11 @@ class Messanger extends JFrame{
 		
 		jf.add(chatsDisplay, BorderLayout.WEST);
 		
-		jf.add(lic.logOut, BorderLayout.EAST);
+		controller.logOutButton.addActionListener(e -> {
+			loggingScreen();
+		});
+		
+		jf.add(controller.logOutButton, BorderLayout.EAST);
 		
 		jf.setVisible(true);
 	}

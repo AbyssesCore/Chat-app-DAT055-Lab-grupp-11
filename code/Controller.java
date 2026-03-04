@@ -1,186 +1,140 @@
 import javax.swing.*;
 import java.util.*;
 
-import java.nio.file.*;
-import java.net.URLDecoder;
+import java.time.LocalDateTime;
 
-import java.net.*;
-
-import java.io.*;
-
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
-
-class Controller {
+class Controller implements NotificationListener{
 	Model model;
 	View view;
 	
 	public JTextArea input;
 	public JButton send;
 	
-	public List<JButton> chats;
-	
 	public JButton addChat;
 	
-	private HttpServer clientSocket;
+	public JButton logOutButton;
+	
+	private MessagePublisher mp;
+	
+	private NotificationReciver nr;
 	
 	Controller(Model model, View view) {
 		this.model = model;
 		this.view = view;
+		this.mp = new MessagePublisher();
 		
-		chats = new ArrayList<JButton>();
+		List<Chat> userChats = null;
+		
+		try {
+			this.nr = new NotificationReciver(this);
+			
+			userChats = mp.getAllUsersChats(model.getUser());
+		}
+		catch (Exception err) {
+			err.printStackTrace();
+			userChats = new ArrayList<Chat>();
+		}
+		
+		for (Chat c : userChats) {
+			addChatActionListener(view.addChat(c.getName()), c);
+		}
+		
+		if (userChats.size() > 0)
+			chatSwapEvent(userChats.get(0));
+		
+		
 		
 		input = new JTextArea("Type Here!");
 		send = new JButton("Send");
 		
+		logOutButton = new JButton("Log out");
+		
+		logOutButton.addActionListener(e -> {
+			logOut();
+		});
+		
 		addChat = new JButton("Create chat");
 		
-		
 		send.addActionListener(e -> {
-			
 			try {
-				view.addText(model.sendMessage(input.getText()));
-				URL url = new URL("http://localhost:228/sendMsg");
+				mp.postMessage(model.getUser(), input.getText(), model.getCurrentChatID());
 				
-				HttpURLConnection con = (HttpURLConnection) url.openConnection();
-				con.setRequestMethod("POST");
-				
-				con.setDoOutput(true);
-				
-				con.setRequestProperty("Content-Type", "application/text");
-				
-				DataOutputStream os = new DataOutputStream(con.getOutputStream());
-				
-				String userName = model.getUser().getName();
-				
-				String msgContent = input.getText();
-				
-				String chatName = model.getCurrentChatName();
-				
-				os.writeBytes(((char)(userName.length() & 0xFF) + "" + (char)(chatName.length() & 0xFF) + "" + (char)(msgContent.length() & 0xFF)) + userName + chatName + msgContent);
-				
-				os.flush();
-				
-				con.setConnectTimeout(5000);
-				con.setReadTimeout(5000);
-				
-				int status = con.getResponseCode();
-				
-				con.disconnect();
-				
-				
+				view.insertMessage(model.sendMessage(input.getText()));
 			}
 			catch (Exception err) {
-				System.out.println(err);
+				err.printStackTrace();
 			}
-			
 		});
 		
 		addChat.addActionListener(e -> {
 			
 			String chatName = "Test chat";
 			
+			long chatID;
+			
 			try {
-				URL url = new URL("http://localhost:228/createChat");
-				HttpURLConnection con = (HttpURLConnection) url.openConnection();
-				con.setRequestMethod("POST");
+				chatID = mp.postNewChat(model.getUser(), chatName);
 				
-				con.setDoOutput(true);
-				
-				con.setRequestProperty("Content-Type", "application/text");
-				
-				DataOutputStream os = new DataOutputStream(con.getOutputStream());
-				
-				String chatAuthor = model.getUser().getName();
-				
-				os.writeBytes(((char)(chatAuthor.length() & 0xFF) + "" + (char)(chatName.length() & 0xFF)) + chatAuthor + chatName);
-				
-				os.flush();
-				
-				con.setConnectTimeout(5000);
-				con.setReadTimeout(5000);
-				
-				int status = con.getResponseCode();
-				
-				if (status != 201) {
-					return;
-				}
-				
-				con.disconnect();
 			}
 			catch (Exception err) {
-				System.out.println(err);
+				err.printStackTrace();
+				return;
 			}
 			
 			
-			Chat nc = model.addChat(chatName);
-			
-			JButton ncButton = new JButton(chatName);
-			
-			chats.add(ncButton);
-			view.addChat(ncButton);
-			
-			if (model.selectChat(nc)) {
-				try {
-					view.loadChat();
-				}
-				catch (Exception err) {
-					System.out.println(err);
-				}
+			if (chatID < 0) {
 				
+				System.out.println("Cant create a new chat: " + chatID);
+				
+				return;
 			}
 			
-			ncButton.addActionListener(ncE -> {
-				if (model.selectChat(nc)) {
-					try {
-						view.loadChat();
-						
-						
-						URL url = new URL("http://localhost:228/");
-						HttpURLConnection con = (HttpURLConnection) url.openConnection();
-						con.setRequestMethod("GET");
-						
-						con.setConnectTimeout(5000);
-						con.setReadTimeout(5000);
-						
-						int status = con.getResponseCode();
-						
-						BufferedReader in = new BufferedReader(
-						  new InputStreamReader(con.getInputStream()));
-						String inputLine;
-						StringBuffer content = new StringBuffer();
-						while ((inputLine = in.readLine()) != null) {
-							content.append(inputLine);
-						}
-						in.close();
-						System.out.println(content);
-						con.disconnect();
-					}
-					catch (Exception err) {
-						System.out.println(err);
-					}
-					
-				}
-			});
+			Chat nc = model.addChat(chatName, chatID);
+			
+			addChatActionListener(view.addChat(chatName), nc);
+			
+			chatSwapEvent(nc);
 		});
 		
 		
-		try {
-			clientSocket = HttpServer.create(new InetSocketAddress(0), 0);
-			
-			System.out.println("Port used: " + clientSocket.getAddress());
-			
-			clientSocket.createContext("/updateChat", (HttpExchange t) -> {
-				InputStream is = t.getRequestBody();
-				byte[] bytes = new byte[is.available()];
-				
-				is.read(bytes, 0, is.available());
-			});
-		}
-		catch (Exception err) {
-			System.out.println(err);
-		}
 		
 	}
+	
+	public void logOut() {
+		try {
+			mp.sendLogOut(model.getUser());
+			
+		}
+		catch (Exception err) {
+			err.printStackTrace();
+		}
+	}
+	
+	public void reciveChatUppdate(byte[] NewMessageContent) {
+		
+	}
+	
+	public void addChat(Chat nc) {
+		
+	}
+	
+	public void addChatActionListener(JButton chatButton, Chat nc) {
+		chatButton.addActionListener(e -> { chatSwapEvent(nc); });
+	}
+	
+	private void chatSwapEvent(Chat c) {
+		int chatStatus = model.selectChat(c);
+		
+		if (chatStatus >= 0) {
+			try {
+				model.loadMessagesToChat(mp.getChatHistory(model.getCurrentChatID(), model.getCurrentChatLastMessageSendTime() ));
+				
+				view.loadChat();
+			}
+			catch (Exception err) {
+				err.printStackTrace();
+			}
+		}
+	}
 }
+

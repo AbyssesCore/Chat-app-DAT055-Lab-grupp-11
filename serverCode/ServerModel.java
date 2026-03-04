@@ -5,30 +5,30 @@ import java.util.*;
 
 import java.sql.*;
 
+import java.io.Serializable;
+
 class ServerModel {
 	ChatLister cl;
 	
 	HashSet<User> onlineUsers = new HashSet<User>();
 	
-	private Connection conn;
+	private databaseConnection dbConn;
 	
 	ServerModel () throws SQLException, ClassNotFoundException {
 		cl = new ChatLister();
 		
-		Class.forName("org.postgresql.Driver");
-		
-		Properties props = new Properties();
-        props.setProperty("user", "postgres");
-        props.setProperty("password", "postgres");
-		
-		conn = DriverManager.getConnection("jdbc:postgresql://localhost/", props);
+		try {
+			dbConn = new databaseConnection();
+		}
+		catch (Exception e) {
+			System.out.println(e);
+		}
 	}
 	
-	public User getOnlineUserByName(String name) {
+	public User getOnlineUserByID(long ID) {
 		for (User u : onlineUsers) {
-			System.out.println(u.getName() + " " + name);
 			
-			if (u.getName().equals(name)) {
+			if (u.getID() == ID) {
 				return u;
 			}
 		}
@@ -36,65 +36,107 @@ class ServerModel {
 		return null;
 	}
 	
-	public User logIn(String name, String password) throws SQLException, ClassNotFoundException {
-		try(PreparedStatement st = conn.prepareStatement(
-            // replace this with something more useful
-            "SELECT display_name FROM app_user WHERE username = ? AND password_hash = ?"
-            );){
-            
-            st.setString(1, name);
-			
-			st.setString(2, password);
-			
-            ResultSet rs = st.executeQuery();
-            
-            if(rs.next()) {
-				User u = new User(rs.getString("display_name"));
-				
-				onlineUsers.add(u);
-				
-				return u;
-            }
-			else {
-              return null; 
-            }
-        }
-	}
-	
-	public Chat createChat(String author, String chatName) {
-		User u = getOnlineUserByName(author);
+	public User logIn(String name, String password)  {
 		
-		System.out.println(u);
+		SQLQueryResult res;
 		
-		if (u == null) {
+		try {
+			 res = dbConn.login(name, password);
+		}
+		catch (Exception err) {
+			System.out.println(err);
 			
 			return null;
 		}
 		
-		cl.createChat(u, chatName);
+		System.out.println(res.get("error"));
+		
+		if (!res.getResult()) {
+			return null;
+		}
+		
+		User u = new User(res.get("display_name"), Long.parseLong(res.get("userId")));
+		
+		onlineUsers.add(u);
+		
+		System.out.println(onlineUsers);
+		
+		return u;
 	}
 	
+	public void logOut(long userID) {
+		
+		System.out.println(userID);
+		
+		onlineUsers.remove(getOnlineUserByID(userID));
+		System.out.println(onlineUsers);
+	}
+	
+	public Chat createChat(long authorID, String chatName) {
+		User u = getOnlineUserByID(authorID);
+		
+		SQLQueryResult res = dbConn.createChat(chatName, authorID);
+		
+		System.out.println(u);
+		
+		if (u == null || !res.getResult()) {
+			
+			return null;
+		}
+		
+		return cl.createChat(u, chatName, Long.parseLong(res.get("chatId")));
+	}
+	
+	public List<UserInterface> getOnlineChatUsers(Chat c) {
+		return cl.getChatUsers(c);
+	}
+	
+	public List<Chat> getAllUsersChats(UserInterface u) {
+		SQLQueryResult res;
+		
+		try {
+			res = dbConn.listChats(u.getID());
+		}
+		catch (Exception err){
+			System.out.println(err);
+			return null;
+		}
+		
+		if (!res.getResult()) {
+			return null;
+		}
+		
+		int l = Integer.parseInt(res.get("length"));
+		
+		List<Chat> out = new ArrayList<Chat>();
+		
+		for (int i = 0; i < l; i++) {
+			out.add(new Chat(cl, res.get(i+ "-chat_name"), Long.parseLong(res.get(i+ "-chat_id")) ));
+		}
+		
+		return out;
+	}
 }
 
 interface UserInterface {
-	public int getID();
+	public long getID();
 	public String getName();
 	public void sendNotification(Message msg);
 }
 
-class User implements UserInterface {
+class User implements UserInterface, Serializable {
 	private static int userCount;
-	final private int persId;
+	final private long persId;
 	
 	public String name;
 	
-	User(String name) {
-		persId = userCount++;
+	User(String name, long id) {
+		persId = id;
 		
 		this.name = name;
 	}
 	
-	public int getID() {
+	public long getID() {
 		return persId;
 	}
 	
@@ -107,7 +149,7 @@ class User implements UserInterface {
 	}
 }
 
-interface Message {
+interface Message extends Serializable {
 	public UserInterface getUser();
 	public Message clone();
 	public int getMessageType();
@@ -210,9 +252,17 @@ class Chat {
 	
 	private String chatName;
 	
-	Chat(ChatLister cl, String chatName) {
+	private long id;
+	
+	Chat(ChatLister cl, String chatName, long id) {
 		this.cl = cl;
 		this.chatName = chatName;
+		
+		this.id = id;
+	}
+	
+	public long getID() {
+		return id;
 	}
 	
 	public boolean sendMessage(Message msg) {
@@ -253,6 +303,16 @@ class ChatLister {
 		return chatsToUserMap.get(c);
 	}
 	
+	public Chat getChatByID(long id) {
+		for (Chat c : chatsToUserMap.keySet()) {
+			if (c.getID() == id) {
+				return c;
+			}
+		}
+		
+		return null;
+	}
+	
 	public List<Chat> userIsPartOf(UserInterface u) {
 		
 		List<Chat> out = new ArrayList<Chat>();
@@ -285,8 +345,8 @@ class ChatLister {
 		return chatsToUserMap.keySet();
 	}
 	
-	public Chat createChat(UserInterface u, String ChatName) {
-		Chat nc = new Chat(this, ChatName);
+	public Chat createChat(UserInterface u, String ChatName, long id) {
+		Chat nc = new Chat(this, ChatName, id);
 		List<UserInterface> nui = new ArrayList<UserInterface>();
 		
 		nui.add(u);

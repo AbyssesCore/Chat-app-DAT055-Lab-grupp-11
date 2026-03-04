@@ -37,10 +37,14 @@ class View {
 		}
 	}
 	
-	public void addText(Message msg) {
+	public void insertMessage(Message msg) {
+		msg.render(this);
+	}
+	
+	public void renderText(TextMessage msg) {
 		JPanel msgBody;
 		
-		if (msg.getUser() == model.getUser()) {
+		if (msg.getUser().equals(model.getUser())) {
 			msgBody = new JPanel(new FlowLayout(FlowLayout.RIGHT, 3, 2));
 		}
 		else
@@ -54,9 +58,7 @@ class View {
 		
 		content.add(userDisplay, BorderLayout.NORTH);
 		
-		JComponent msgCont = msg.getContent();
-		
-		content.add(msgCont);
+		content.add(new JLabel("<html>"+ new String(msg.getContent()) +"</html>"));
 		
 		content.setBackground(Color.ORANGE);
 		
@@ -65,25 +67,55 @@ class View {
 		text.add(msgBody);
 		
 		text.revalidate();
-		
 	}
 	
-	public void addChat(JButton chatButton) {
+	public void renderImg(ImgMessage msg) {
+		JPanel msgBody;
 		
-		chatList.add( chatButton );
+		if (msg.getUser().equals(model.getUser())) {
+			msgBody = new JPanel(new FlowLayout(FlowLayout.RIGHT, 3, 2));
+		}
+		else
+		{
+			msgBody = new JPanel(new FlowLayout(FlowLayout.LEFT, 3, 2));
+		}
+		
+		JPanel content = new JPanel(new BorderLayout());
+		
+		JLabel userDisplay = new JLabel("User: " + msg.getUser().getName());
+		
+		content.add(userDisplay, BorderLayout.NORTH);
+		
+		content.add(new JLabel("<html> IMG NOT IMPLEMENTED YET </html>"));
+		
+		content.setBackground(Color.ORANGE);
+		
+		msgBody.add(content);
+		
+		text.add(msgBody);
+		
+		text.revalidate();
+	}
+	
+	public JButton addChat(String chatName) {
+		JButton ncButton = new JButton(chatName);
+		
+		chatList.add( ncButton );
 		
 		chatList.repaint();
 		
 		for (JComponent repaintTarget : repaintOnChatChange) {
 			repaintTarget.revalidate();
 		}
+		
+		return ncButton;
 	}
 	
 	public void loadChat() throws Exception{
 		text.removeAll();
 		
 		for (Message msg : model.getCurrentChatHistory()) {
-			addText(msg);
+			msg.render(this);
 		}
 		
 		text.revalidate();
