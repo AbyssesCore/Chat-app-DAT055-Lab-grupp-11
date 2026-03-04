@@ -2,7 +2,7 @@ import java.net.*;
 
 import java.io.*;
 
-import java.util.List;
+import java.util.HashSet;
 
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpExchange;
@@ -12,11 +12,9 @@ class NotificationReciver {
 	
 	private HttpServer clientSocket;
 	
-	private NotificationListener subscriber;
+	private HashSet<NotificationListener> subscribers = new HashSet<NotificationListener>();
 	
-	NotificationReciver(NotificationListener subscriber) throws Exception {
-		this.subscriber = subscriber;
-		
+	public void startReciving()  throws Exception  {
 		clientSocket = HttpServer.create(new InetSocketAddress(0), 0);
 		
 		System.out.println("Port used: " + clientSocket.getAddress());
@@ -27,11 +25,26 @@ class NotificationReciver {
 			
 			is.read(bytes, 0, is.available());
 			
-			subscriber.reciveChatUppdate(bytes);
+			
+			for (NotificationListener subscriber : subscribers)
+				subscriber.reciveChatUppdate(bytes);
 		});
 	}
 	
-	public void setSubscriber(NotificationListener subscriber) {
-		this.subscriber = subscriber;
+	public void stopReciving() {
+		clientSocket.stop(0);
+	}
+	
+	public void addSubscriber(NotificationListener subscriber) {
+		if (subscriber == null)
+			return;
+		
+		System.out.println(subscriber);
+		
+		subscribers.add(subscriber);
+	}
+	
+	public void removeSubscriber(NotificationListener subscriber) {
+		subscribers.remove(subscriber);
 	}
 }

@@ -16,118 +16,54 @@ import com.sun.net.httpserver.HttpServer;
 
 class LogInController {
 	
-	public JTextArea logInInput;
-	public JTextArea passwordInput;
-	public JButton logIn;
+	private MessagePublisher mp;
 	
-	public Messanger msngr;
+	private final LogInView view;
 	
-	private HttpServer clientSocket;
+	private List<LogInObserver> updateOnLogIn;
 	
-	LogInController(Messanger msngr) {
+	LogInController(LogInView view, MessagePublisher mp) {
+		this.mp = mp;
+		this.view = view;
 		
-		this.msngr = msngr;
+		updateOnLogIn = new ArrayList<LogInObserver>();
 		
-		logInInput = new JTextArea();
-		
-		passwordInput = new JTextArea();
-		
-		logIn = new JButton();
-		
+		view.buildLoginUI();
+	}
+	
+	public void addLogInEvent(JButton logIn) {
 		logIn.addActionListener(e -> {
-			try {
-				URL url = new URL("http://localhost:228/checkLogIn");
-				
-				HttpURLConnection con2 = (HttpURLConnection) url.openConnection();
-				con2.setRequestMethod("POST");
-				
-				con2.setDoOutput(true);
-				
-				con2.setRequestProperty("Content-Type", "application/text");
-				
-				DataOutputStream os = new DataOutputStream(con2.getOutputStream());
-				
-				messageTranslater msgt = new messageTranslater();
-				
-				msgt.addLocalDateTime(LocalDateTime.now());
-				
-				msgt.addString("asd");
-				
-				msgt.addString("asd"); // no password text input yet
-				
-				os.writeBytes(msgt.getMessage());
-				
-				os.flush();
-				
-				con2.setConnectTimeout(5000);
-				con2.setReadTimeout(5000);
-				
-				int status = con2.getResponseCode();
-				
-				if (status != 200)
-					return;
-				
-				con2.disconnect();
-			}
-			catch (Exception err) {
-				System.out.println(err);
-			}
+			int status = 0;
+			
+			System.out.println(view.getLogInText() + " " + view.getPasswordText());
 			
 			try {
-				URL url = new URL("http://localhost:228/logIn");
+				status = mp.checkLogIn(view.getLogInText(), view.getPasswordText());
+			}catch (Exception err) {
+				err.printStackTrace();
 				
-				HttpURLConnection con = (HttpURLConnection) url.openConnection();
-				con.setRequestMethod("POST");
+				status = 500;
+			}
+			
+			if (status != 200)
+				return;
+			
+			try {
+				User u = mp.logIn(view.getLogInText(), view.getPasswordText());
 				
-				con.setDoOutput(true);
-				
-				con.setRequestProperty("Content-Type", "application/text");
-				
-				DataOutputStream os = new DataOutputStream(con.getOutputStream());
-				
-				messageTranslater msgt = new messageTranslater();
-				
-				msgt.addString(logInInput.getText());
-				
-				msgt.addString("asd"); // no password text input yet
-				
-				os.writeBytes(msgt.getMessage());
-				
-				os.flush();
-				
-				con.setConnectTimeout(5000);
-				con.setReadTimeout(5000);
-				
-				int status = con.getResponseCode();
-				
-				System.out.println(status);
-				
-				if (status == 200) {
-					InputStream is = con.getInputStream();
-					try {
-						String name = msgt.translateString(is);
-						
-						long id = msgt.translateLong(is);
-						
-						System.out.println("Name: " + name  + " ID: " + id);
-						
-						
-						msngr.loggedIn(new User(name, id));
-					}
-					catch (Exception err) {
-						err.printStackTrace();
-						return;
-					}
-					
-				}
-				
-				con.disconnect();
+				for (LogInObserver observer : updateOnLogIn)
+					observer.invokeOnLogIn(u);
 			}
 			catch (Exception err) {
-				System.out.println(err);
+				err.printStackTrace();
 			}
 			
 		});
-		
 	}
+	
+	public void addLogInObserver(LogInObserver observer) {
+		updateOnLogIn.add(observer);
+	}
+	
+	
 }

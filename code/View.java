@@ -1,127 +1,198 @@
 import javax.swing.*;
+import javax.swing.border.*;
 import java.awt.*;
-import java.util.*;
+import java.util.HashSet;
 
 class View {
-	Model model;
+    private Model model;
 	
-	JPanel text;
-	JPanel chatList;
-	
-	HashSet<JComponent> repaintOnChatChange;
-	
-	
-	View(Model model) {
+	private final ChatUI ui;
+
+    // Chat list area (era chat-knappar läggs här)
+    
+    private final HashSet<JComponent> repaintOnChatChange;
+
+    View(Model model, ChatUI ui) {
+        this.ui = ui;
 		this.model = model;
+		repaintOnChatChange = new HashSet<>();
 		
-		text = new JPanel(new GridLayout(0, 1));
+		addRepaintOnaddChat(ui.getChatList());
+        addRepaintOnaddChat(ui.getSidebar());
+    }
+	
+    // -------------------------
+    // Login-utseende (statisk)
+    // -------------------------
+	
+	public void renderText (TextMessage msg) {
 		
-		chatList = new JPanel();
+		boolean isMe = (msg.getUser().equals(model.getUser()));
+
+        JPanel row = new JPanel(new BorderLayout());
+        row.setOpaque(false);
+        row.setBorder(new EmptyBorder(6, 6, 6, 6));
+
+        JPanel bubble = new BubblePanel(isMe ? new Color(220, 238, 255) : Color.WHITE);
+        bubble.setLayout(new BoxLayout(bubble, BoxLayout.Y_AXIS));
+        bubble.setBorder(new EmptyBorder(10, 12, 10, 12));
+        bubble.setOpaque(false);
+
+        JLabel name = new JLabel(msg.getUser().getName());
+        name.setFont(name.getFont().deriveFont(Font.BOLD, 12f));
+        name.setForeground(new Color(70, 75, 85));
 		
-		chatList.setLayout(new BoxLayout(chatList, BoxLayout.Y_AXIS));
+		JComponent content = new JLabel(msg.getText());
+		content.setOpaque(false);
 		
-		repaintOnChatChange = new HashSet<JComponent>();
+        bubble.add(name);
+        bubble.add(Box.createVerticalStrut(4));
+        bubble.add(content);
+
+        if (isMe) {
+            row.add(bubble, BorderLayout.EAST);
+        } else {
+            row.add(bubble, BorderLayout.WEST);
+        }
+		JPanel messages = ui.getMessages();
+		
+        messages.add(row);
+        messages.add(Box.createVerticalStrut(2));
+
+        messages.revalidate();
+
+        // Auto-scroll till botten
+        SwingUtilities.invokeLater(() -> {
+            JScrollBar bar = ui.getMessagesScroll().getVerticalScrollBar();
+            bar.setValue(bar.getMaximum());
+        });
 	}
 	
-	public JComponent getTextComponent() {
-		return text;
+	public void renderImg(ImgMessage msg)  {
+		
+		boolean isMe = (msg.getUser().equals(model.getUser()));
+
+        JPanel row = new JPanel(new BorderLayout());
+        row.setOpaque(false);
+        row.setBorder(new EmptyBorder(6, 6, 6, 6));
+
+        JPanel bubble = new BubblePanel(isMe ? new Color(220, 238, 255) : Color.WHITE);
+        bubble.setLayout(new BoxLayout(bubble, BoxLayout.Y_AXIS));
+        bubble.setBorder(new EmptyBorder(10, 12, 10, 12));
+        bubble.setOpaque(false);
+
+        JLabel name = new JLabel(msg.getUser().getName());
+        name.setFont(name.getFont().deriveFont(Font.BOLD, 12f));
+        name.setForeground(new Color(70, 75, 85));
+		
+		JComponent content = new JLabel("NOT IMPLEMENTED YET");
+		content.setOpaque(false);
+		
+        bubble.add(name);
+        bubble.add(Box.createVerticalStrut(4));
+        bubble.add(content);
+
+        if (isMe) {
+            row.add(bubble, BorderLayout.EAST);
+        } else {
+            row.add(bubble, BorderLayout.WEST);
+        }
+
+		JPanel messages = ui.getMessages();
+		
+        messages.add(row);
+        messages.add(Box.createVerticalStrut(2));
+
+        messages.revalidate();
+
+        // Auto-scroll till botten
+        SwingUtilities.invokeLater(() -> {
+            JScrollBar bar = ui.getMessagesScroll().getVerticalScrollBar();
+            bar.setValue(bar.getMaximum());
+        });
 	}
-	
-	public void addRepaintOnaddChat(JComponent repaintTarget) {
-		repaintOnChatChange.add(repaintTarget);
-	}
-	
-	public void removeRepaintOnaddChat(JComponent repaintTarget) {
-		if (repaintOnChatChange.contains(repaintTarget)) {
-			repaintOnChatChange.remove(repaintTarget);
-		}
-	}
-	
-	public void insertMessage(Message msg) {
+
+    // -------------------------
+    // Message rendering
+    // -------------------------
+    public void addText(Message msg) {
+		if (model == null)
+			return;
+		
 		msg.render(this);
+    }
+
+    public JButton addChat(String chatName) {
+		
+		JButton chatButton = ui.addChat(chatName);
+		
+        for (JComponent repaintTarget : repaintOnChatChange) {
+            repaintTarget.revalidate();
+            repaintTarget.repaint();
+        }
+		
+		return chatButton;
+    }
+
+    public void addRepaintOnaddChat(JComponent repaintTarget) {
+		if (repaintTarget == null)
+			return;
+        repaintOnChatChange.add(repaintTarget);
+    }
+
+    public void removeRepaintOnaddChat(JComponent repaintTarget) {
+        repaintOnChatChange.remove(repaintTarget);
+    }
+
+    public void loadChat() throws Exception {
+		
+        ui.removeAllMessages();
+		
+        for (Message msg : model.getCurrentChatHistory()) {
+            addText(msg);
+        }
+
+        ui.revalidatedMessages();
+    }
+	
+    // -------------------------
+    // Rounded bubble panel
+    // -------------------------
+    private static class BubblePanel extends JPanel {
+        private final Color fill;
+
+        BubblePanel(Color fill) {
+            this.fill = fill;
+            setOpaque(false);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int arc = 18;
+            int w = getWidth();
+            int h = getHeight();
+
+            g2.setColor(fill);
+            g2.fillRoundRect(0, 0, w, h, arc, arc);
+
+            g2.setColor(new Color(220, 223, 228));
+            g2.drawRoundRect(0, 0, w - 1, h - 1, arc, arc);
+
+            g2.dispose();
+            super.paintComponent(g);
+        }
+    }
+	
+	public void buildChatUI(User u) {
+		ui.buildChatUI(u);
 	}
 	
-	public void renderText(TextMessage msg) {
-		JPanel msgBody;
-		
-		if (msg.getUser().equals(model.getUser())) {
-			msgBody = new JPanel(new FlowLayout(FlowLayout.RIGHT, 3, 2));
-		}
-		else
-		{
-			msgBody = new JPanel(new FlowLayout(FlowLayout.LEFT, 3, 2));
-		}
-		
-		JPanel content = new JPanel(new BorderLayout());
-		
-		JLabel userDisplay = new JLabel("User: " + msg.getUser().getName());
-		
-		content.add(userDisplay, BorderLayout.NORTH);
-		
-		content.add(new JLabel("<html>"+ new String(msg.getContent()) +"</html>"));
-		
-		content.setBackground(Color.ORANGE);
-		
-		msgBody.add(content);
-		
-		text.add(msgBody);
-		
-		text.revalidate();
+	public String getInputText() {
+		return ui.getInputText();
 	}
-	
-	public void renderImg(ImgMessage msg) {
-		JPanel msgBody;
-		
-		if (msg.getUser().equals(model.getUser())) {
-			msgBody = new JPanel(new FlowLayout(FlowLayout.RIGHT, 3, 2));
-		}
-		else
-		{
-			msgBody = new JPanel(new FlowLayout(FlowLayout.LEFT, 3, 2));
-		}
-		
-		JPanel content = new JPanel(new BorderLayout());
-		
-		JLabel userDisplay = new JLabel("User: " + msg.getUser().getName());
-		
-		content.add(userDisplay, BorderLayout.NORTH);
-		
-		content.add(new JLabel("<html> IMG NOT IMPLEMENTED YET </html>"));
-		
-		content.setBackground(Color.ORANGE);
-		
-		msgBody.add(content);
-		
-		text.add(msgBody);
-		
-		text.revalidate();
-	}
-	
-	public JButton addChat(String chatName) {
-		JButton ncButton = new JButton(chatName);
-		
-		chatList.add( ncButton );
-		
-		chatList.repaint();
-		
-		for (JComponent repaintTarget : repaintOnChatChange) {
-			repaintTarget.revalidate();
-		}
-		
-		return ncButton;
-	}
-	
-	public void loadChat() throws Exception{
-		text.removeAll();
-		
-		for (Message msg : model.getCurrentChatHistory()) {
-			msg.render(this);
-		}
-		
-		text.revalidate();
-		text.repaint();
-	}
-	
 	
 	
 }

@@ -3,70 +3,50 @@ import java.util.*;
 
 import java.time.LocalDateTime;
 
-class Controller implements NotificationListener{
+class Controller implements NotificationListener {
 	Model model;
 	View view;
 	
-	public JTextArea input;
-	public JButton send;
-	
-	public JButton addChat;
+	List<LogOutObserver> logOutObservers = new ArrayList<LogOutObserver>();
 	
 	public JButton logOutButton;
-	
 	private MessagePublisher mp;
 	
-	private NotificationReciver nr;
+	
 	
 	Controller(Model model, View view) {
-		this.model = model;
 		this.view = view;
+		this.model = model;
 		this.mp = new MessagePublisher();
-		
-		List<Chat> userChats = null;
-		
+	}
+	
+	public void addLogOutEvent(JButton logOutButton) {
+		logOutButton.addActionListener(e -> {
+			logOut(true);
+		});
+	}
+	
+	public void logOut(boolean keepAlive) {
 		try {
-			this.nr = new NotificationReciver(this);
+			mp.sendLogOut(model.getUser());
 			
-			userChats = mp.getAllUsersChats(model.getUser());
+			if (keepAlive) {
+				notifyLogOutObservers();
+			}
+			
 		}
 		catch (Exception err) {
 			err.printStackTrace();
-			userChats = new ArrayList<Chat>();
 		}
+	}
+	
+	public void reciveChatUppdate(byte[] NewMessageContent) {
 		
-		for (Chat c : userChats) {
-			addChatActionListener(view.addChat(c.getName()), c);
-		}
+	}
+	
+	public void addChatCreateEvent(JButton createChat) {
 		
-		if (userChats.size() > 0)
-			chatSwapEvent(userChats.get(0));
-		
-		
-		
-		input = new JTextArea("Type Here!");
-		send = new JButton("Send");
-		
-		logOutButton = new JButton("Log out");
-		
-		logOutButton.addActionListener(e -> {
-			logOut();
-		});
-		
-		addChat = new JButton("Create chat");
-		
-		send.addActionListener(e -> {
-			try {
-				mp.postMessage(model.getUser(), input.getText(), model.getCurrentChatID());
-				
-				view.insertMessage(model.sendMessage(input.getText()));
-			}
-			catch (Exception err) {
-				err.printStackTrace();
-			}
-		});
-		
-		addChat.addActionListener(e -> {
+		createChat.addActionListener(e -> {
 			
 			String chatName = "Test chat";
 			
@@ -95,27 +75,6 @@ class Controller implements NotificationListener{
 			
 			chatSwapEvent(nc);
 		});
-		
-		
-		
-	}
-	
-	public void logOut() {
-		try {
-			mp.sendLogOut(model.getUser());
-			
-		}
-		catch (Exception err) {
-			err.printStackTrace();
-		}
-	}
-	
-	public void reciveChatUppdate(byte[] NewMessageContent) {
-		
-	}
-	
-	public void addChat(Chat nc) {
-		
 	}
 	
 	public void addChatActionListener(JButton chatButton, Chat nc) {
@@ -135,6 +94,56 @@ class Controller implements NotificationListener{
 				err.printStackTrace();
 			}
 		}
+	}
+	
+	public void addSendEvent(JButton send) {
+		
+		send.addActionListener(e -> {
+			try {
+				mp.postMessage(model.getUser(), view.getInputText(), model.getCurrentChatID());
+				
+				view.addText(model.sendMessage(view.getInputText()));
+			}
+			catch (Exception err) {
+				err.printStackTrace();
+			}
+		});
+	}
+	
+	public void logInUser(User u) {
+		List<Chat> userChats = null;
+		
+		try {
+			userChats = mp.getAllUsersChats(model.getUser());
+		}
+		catch (Exception err) {
+			err.printStackTrace();
+			userChats = new ArrayList<Chat>();
+		}
+		
+		for (Chat c : userChats) {
+			addChatActionListener(view.addChat(c.getName()), c);
+		}
+		
+		if (userChats.size() > 0)
+			chatSwapEvent(userChats.get(0));
+		
+		view.buildChatUI(u);
+		
+	}
+	
+	private void notifyLogOutObservers() {
+		
+		System.out.println("quit");
+		
+		UserInterface u = model.getUser();
+		
+		for (LogOutObserver observer : logOutObservers)
+			observer.invokeOnLogOut(u);
+	}
+	
+	public void addLogOutObserver(LogOutObserver observer) {
+		logOutObservers.add(observer);
 	}
 }
 

@@ -1,120 +1,112 @@
 import javax.swing.*;
+import javax.swing.border.*;
 import java.awt.*;
-import java.util.*;
 
 import java.awt.event.*;
 
-import java.io.*;
-
-
-class Messanger extends JFrame{
-	JFrame jf;
+class Messanger implements LogInObserver, LogOutObserver {
+    Model model;
+    View view;
 	
-	Model model;
+	LogInView liView;
 	
-	View view;
+	JFrame jf = new JFrame();
+	
+	logInUI ui;
+	
+	ChatUI chatUI;
 	
 	Controller controller;
-	LogInController lic;
 	
-	Messanger() {
-		jf = new JFrame("Messanger");
-		
-		jf.setSize(650, 300);
-		
-    	jf.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-		
-		jf.addWindowListener(new WindowAdapter() {
+	LogInController liController;
+	
+	MessagePublisher mp;
+	
+	NotificationReciver nr = new NotificationReciver();
+	
+    Messanger() {
+        jf.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent winEvt) {
 				
 				if (controller != null) {
-					controller.logOut();
+					controller.logOut(false);
 				}
 				
 				System.exit(0);
 			}
 		});
 		
-		loggingScreen();
+		jf.setName("Messanger");
 		
-	}
+		jf.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+		jf.setMinimumSize(new Dimension(700, 650));
+        jf.setLocationRelativeTo(null);
+		
+		ui = new UIcollection(jf);
+		
+		liView = new LogInView(ui);
+		
+		mp = new MessagePublisher();
+		
+		liController =  new LogInController(liView, mp);
+		
+		liController.addLogInObserver(this);
+		
+		liController.addLogInEvent(ui.getLogInButton());
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(Messanger::new);
+    }
 	
-	public static void main (String[] args){
-		new Messanger();
-	}
-	
-	private void clearScreen() {
-		jf.getContentPane().removeAll();
-		jf.repaint();
-	}
-	
-	public void loggedIn(User u) {
-		clearScreen();
+	public void invokeOnLogIn(User u) {
+		
+		System.out.println("invoked log in");
+		
+		chatUI = new LoggedInUI(jf);
 		
 		model = new Model(u);
-		
-		view = new View(model);
+		view = new View(model, chatUI);
 		
 		controller = new Controller(model, view);
 		
-		controller.input.setLayout(new BorderLayout());
+		try {
+			nr.startReciving();
+			
+			nr.addSubscriber(controller);
+		}
+		catch (Exception err) {
+			err.printStackTrace();
+			invokeOnLogOut(u);
+			return;
+		}
 		
-		controller.input.add(controller.send, BorderLayout.EAST);
 		
-		jf.setLayout(new BorderLayout());
+		controller.addLogOutObserver(this);
 		
-		jf.add(controller.input, BorderLayout.SOUTH);
+		controller.logInUser(u);
 		
-		JScrollPane chatScroll = new JScrollPane(view.chatList);
+		controller.addSendEvent(chatUI.getSendBtn());
 		
-		chatScroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+		controller.addLogOutEvent(chatUI.getLogOutBtn());
 		
-		chatScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		controller.addChatCreateEvent(chatUI.getAddChatBtn());
 		
-		JPanel chatsDisplay = new JPanel();
-		
-		chatsDisplay.setLayout(new BorderLayout());
-		
-		chatsDisplay.add(chatScroll);
-		
-		chatsDisplay.add(controller.addChat, BorderLayout.NORTH);
-		
-		view.addRepaintOnaddChat(chatsDisplay);
-		
-		JPanel textSizeScaler = new JPanel( new BorderLayout() );
-		
-		textSizeScaler.add(view.getTextComponent(), BorderLayout.PAGE_START);
-		
-		JScrollPane textScroller = new JScrollPane(textSizeScaler);
-		
-		textScroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-		
-		textScroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-		
-		jf.add(textScroller);
-		
-		jf.add(chatsDisplay, BorderLayout.WEST);
-		
-		controller.logOutButton.addActionListener(e -> {
-			loggingScreen();
-		});
-		
-		jf.add(controller.logOutButton, BorderLayout.EAST);
-		
-		jf.setVisible(true);
-	}
+		chatUI.repaint();
+    }
 	
-	public void loggingScreen() {
-		clearScreen();
+	public void invokeOnLogOut(UserInterface u) {
+		chatUI.removeAllChats();
 		
-		jf.setLayout(new BorderLayout());
+		liView.buildLoginUI();
 		
-		lic = new LogInController(this);
+		nr.stopReciving();
 		
-		jf.add(lic.logInInput, BorderLayout.NORTH);
+		nr.removeSubscriber(controller);
 		
-		jf.add(lic.logIn, BorderLayout.EAST);
-		
-		jf.setVisible(true);
+		chatUI = null;
+		view = null;
+		model = null;
+		controller = null;
 	}
 }

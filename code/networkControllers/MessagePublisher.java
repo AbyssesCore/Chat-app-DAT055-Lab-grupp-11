@@ -244,4 +244,92 @@ class MessagePublisher {
 		
 		return out;
 	}
- }
+	
+	public int checkLogIn(String username, String password) throws IOException, ProtocolException, MalformedURLException {
+		URL url = new URL("http://localhost:228/checkLogIn");
+		
+		HttpURLConnection con = (HttpURLConnection) url.openConnection();
+		con.setRequestMethod("POST");
+		
+		con.setDoOutput(true);
+		
+		con.setRequestProperty("Content-Type", "application/text");
+		
+		DataOutputStream os = new DataOutputStream(con.getOutputStream());
+		
+		messageTranslater msgt = new messageTranslater();
+		
+		msgt.addLocalDateTime(LocalDateTime.now());
+		
+		msgt.addString(username);
+		
+		msgt.addString(password);
+		
+		os.writeBytes(msgt.getMessage());
+		
+		os.flush();
+		
+		con.setConnectTimeout(5000);
+		con.setReadTimeout(5000);
+		
+		int status = con.getResponseCode();
+		
+		con.disconnect();
+		
+		return status;
+	}
+	
+	public User logIn(String username, String password) throws IOException, ProtocolException, MalformedURLException  {
+		URL url = new URL("http://localhost:228/logIn");
+		
+		HttpURLConnection con = (HttpURLConnection) url.openConnection();
+		con.setRequestMethod("POST");
+		
+		con.setDoOutput(true);
+		
+		con.setRequestProperty("Content-Type", "application/text");
+		
+		DataOutputStream os = new DataOutputStream(con.getOutputStream());
+		
+		messageTranslater msgt = new messageTranslater();
+		
+		msgt.addString(username);
+		
+		msgt.addString(password);
+		
+		os.writeBytes(msgt.getMessage());
+		
+		os.flush();
+		
+		con.setConnectTimeout(5000);
+		con.setReadTimeout(5000);
+		
+		int status = con.getResponseCode();
+		
+		System.out.println(status);
+		
+		User u = null;
+		
+		if (status == 200) {
+			InputStream is = con.getInputStream();
+			try {
+				String name = msgt.translateString(is);
+				
+				long id = msgt.translateLong(is);
+				
+				u =  new User(name, id);
+			}
+			catch (Exception err) {
+				err.printStackTrace();
+				con.disconnect();
+				return null;
+			}
+			
+		}
+		
+		con.disconnect();
+		
+		return u;
+	}
+	
+}

@@ -57,6 +57,9 @@ class Model {
 		}
 		
 		Message msg = new TextMessage(u, text);
+		
+		msg.setArrivleTime(LocalDateTime.now());
+		
 		selectedChat.sendMessage(msg);
 		
 		return msg;
