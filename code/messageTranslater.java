@@ -3,9 +3,13 @@ import java.time.format.DateTimeFormatter;
 
 import java.io.*;
 
+import java.awt.image.BufferedImage;
+import java.util.Arrays;
+
+
 class messageTranslater {
 	
-	String msg;
+	byte[] msg;
 	
 	private static final DateTimeFormatter dateTimeSaveFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
 	
@@ -30,22 +34,26 @@ class messageTranslater {
 	// Message content is pure byte-content. Content can be only of types String and long
 	
 	public messageTranslater() {
-		msg = "";
+		msg = new byte[0];
 	}
 	
-	public String addString(String text) throws Error {
+	public byte[] addString(String text) throws Error {
 		return addString(text, true);
 	}
 	
-	public String addString(String text, boolean addToBody) throws Error {
+	public byte[] addString(String text, boolean addToBody) throws Error {
 		byte msgBase = 0;
 		
-		String msgExtenshion = "";
+		byte[] msgExtenshion;
+		
+		int offset = 1;
 		
 		if (text.length() < 32) {
 			msgBase |= text.length();
 			
-			msgExtenshion += new String(new byte[] { msgBase });
+			msgExtenshion = new byte[1 + text.length()];
+			
+			msgExtenshion[0] = msgBase;
 		}
 		else {
 			
@@ -53,45 +61,116 @@ class messageTranslater {
 			
 			msgBase |= 0b100000 | bytesInLength;
 			
-			msgExtenshion += new String(new byte[] { msgBase });
+			msgExtenshion = new byte[1 + bytesInLength + text.length()];
 			
-			msgExtenshion += longBytesToString(text.length(), bytesInLength);
+			byte[] longBytes = longBytesToByteArray(text.length(), bytesInLength);
+			
+			msgExtenshion[0] = msgBase;
+			
+			System.arraycopy(longBytes, 0, msgExtenshion, 1, bytesInLength);
+			
+			offset += bytesInLength;
 		}
 		
-		msgExtenshion += text;
+		System.arraycopy(text.getBytes(), 0, msgExtenshion, offset, text.length());
 		
-		if (addToBody)
-			msg += msgExtenshion;
+		if (addToBody) {
+			byte[] newMsg = Arrays.copyOf(msg, msg.length + msgExtenshion.length);
+			
+			System.arraycopy(msgExtenshion, 0, newMsg, msg.length, msgExtenshion.length);
+			
+			msg = newMsg;
+		}
 		
 		return msgExtenshion;
 	}
 	
-	public String addLong(long x) {
+	public byte[] addImg (ImgObject img) {
+		return addImg(img, true);
+	}
+	
+	public byte[] addImg(ImgObject img, boolean addToBody) {
+		byte msgBase = (byte)(0b11000000);
+		
+		byte[] msgExtenshion;
+		
+		byte[] imgContent = img.getImgBytes();
+		
+		int offset = 1;
+		
+		if (imgContent.length < 32) {
+			msgBase |= imgContent.length;
+			
+			msgExtenshion = new byte[1 + imgContent.length];
+			
+			msgExtenshion[0] = msgBase;
+		}
+		else {
+			
+			int bytesInLength = calcMinByteLength(imgContent.length);
+			
+			msgBase |= 0b100000 | bytesInLength;
+			
+			msgExtenshion = new byte[1 + bytesInLength + imgContent.length];
+			
+			msgExtenshion[0] = msgBase;
+			
+			byte[] longBytes = longBytesToByteArray(imgContent.length, bytesInLength);
+			
+			System.arraycopy(longBytes, 0, msgExtenshion, 1, bytesInLength);
+			
+			offset += bytesInLength;
+		}
+		
+		System.arraycopy(imgContent, 0, msgExtenshion, offset, imgContent.length);
+		
+		if (addToBody) {
+			byte[] newMsg = Arrays.copyOf(msg, msg.length + msgExtenshion.length);
+			
+			System.arraycopy(msgExtenshion, 0, newMsg, msg.length, msgExtenshion.length);
+			
+			msg = newMsg;
+		}
+		
+		return msgExtenshion;
+	}
+	
+	
+	public byte[] addLong(long x) {
 		return addLong(x, true);
 	}
 	
 	
 	// long cant be extendet as it's maximal size is 8 bytes < 32
-	public String addLong(long x, boolean addToBody) {
+	public byte[] addLong(long x, boolean addToBody) {
 		int bytesInLength = calcMinByteLength(x);
 		
-		byte msgBase = 0b01000000;
+		byte msgBase = (byte)(0b01000000 | bytesInLength);
 		
-		msgBase |= bytesInLength;
+		byte[] msgExtenshion = new byte[1 + bytesInLength];
 		
-		String msgExtenshion = new String(new byte[] { msgBase } ) + longBytesToString(x, bytesInLength);
+		msgExtenshion[0] = msgBase;
 		
-		if (addToBody)
-			msg += msgExtenshion;
+		System.arraycopy(longBytesToByteArray(x, bytesInLength), 0, msgExtenshion, 1, bytesInLength);
+		
+		if (addToBody) {
+			byte[] newMsg = Arrays.copyOf(msg, msg.length + msgExtenshion.length);
+			
+			System.arraycopy(msgExtenshion, 0, newMsg, msg.length, msgExtenshion.length);
+			
+			msg = newMsg;
+		}
 		
 		return msgExtenshion;
 	}
 	
-	public String addLocalDateTime(LocalDateTime time) {
+	
+	
+	public byte[] addLocalDateTime(LocalDateTime time) {
 		return addString(time.format(dateTimeSaveFormat));
 	}
 	
-	public String addLocalDateTime(LocalDateTime time, boolean addToBody) {
+	public byte[] addLocalDateTime(LocalDateTime time, boolean addToBody) {
 		return addString(parseTimeToMessageFormat(time), addToBody);
 	}
 	
@@ -159,12 +238,12 @@ class messageTranslater {
 		return out;
 	}
 	
-	public String getMessage() {
+	public byte[] getMessage() {
 		return msg;
 	}
 	
 	public int getMessageLength() {
-		return msg.length();
+		return msg.length;
 	}
 	
 	private int calcMinByteLength(long x) {
@@ -178,14 +257,16 @@ class messageTranslater {
 		return i;
 	}
 	
-	private String longBytesToString(long content, int endByte) {
-		String out = "";
+	
+	private byte[] longBytesToByteArray(long content, int endByte) {
+		byte[] out = new byte[endByte];
 		
+		int i = 0;
 		while (endByte != 0) {
 			
 			endByte -= 1;
 			
-			out += new String( new byte[] { (byte)((content >> (endByte * 8)) & 0xff) } );
+			out[i++] = (byte)((content >> (endByte * 8)) & 0xff);	
 		}
 		
 		return out;

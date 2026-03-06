@@ -59,9 +59,24 @@ class Messanger implements LogInObserver, LogOutObserver {
         SwingUtilities.invokeLater(Messanger::new);
     }
 	
-	public void invokeOnLogIn(User u) {
+	public void invokeLogIn(String username, String password) {
+		User u = null;
 		
-		System.out.println("invoked log in");
+		try {
+			nr.startReciving();
+			
+			u = mp.logIn(username, password, nr.getSocketAddres().getPort());
+		}
+		catch (Exception err){
+			err.printStackTrace();
+			return;
+		}
+		
+		if (u == null) {
+			nr.stopReciving();
+			return;
+		}
+		System.out.println("invoked log in " + u);
 		
 		chatUI = new LoggedInUI(jf);
 		
@@ -70,17 +85,7 @@ class Messanger implements LogInObserver, LogOutObserver {
 		
 		controller = new Controller(model, view);
 		
-		try {
-			nr.startReciving();
-			
-			nr.addSubscriber(controller);
-		}
-		catch (Exception err) {
-			err.printStackTrace();
-			invokeOnLogOut(u);
-			return;
-		}
-		
+		nr.addSubscriber(controller);
 		
 		controller.addLogOutObserver(this);
 		
@@ -88,9 +93,13 @@ class Messanger implements LogInObserver, LogOutObserver {
 		
 		controller.addSendEvent(chatUI.getSendBtn());
 		
+		controller.addSendImgEvent(chatUI.getSendImgBtn(), jf);
+		
 		controller.addLogOutEvent(chatUI.getLogOutBtn());
 		
-		controller.addChatCreateEvent(chatUI.getAddChatBtn());
+		controller.addChatCreateActionListener(chatUI.getAddChatBtn());
+		
+		controller.addSelectJoinChatEvent(chatUI.getJoinChatBtn(), new JoinChatView(jf));
 		
 		chatUI.repaint();
     }

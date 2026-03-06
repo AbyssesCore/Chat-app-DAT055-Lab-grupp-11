@@ -8,6 +8,6 @@ class ImgConstructor implements messageConstructor {
 		
 		System.out.println("Img constructed");
 		
-		return new ImgMessage(null, "Template");
+		return new ImgMessage(null, null);
 	}
 }

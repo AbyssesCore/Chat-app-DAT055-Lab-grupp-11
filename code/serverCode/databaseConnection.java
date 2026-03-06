@@ -8,13 +8,14 @@ import java.util.Properties;
 import java.io.*;
 
 import java.util.List;
+import java.util.ArrayList;
 
 
 public class databaseConnection {
 
     private Connection conn;
 	
-	private final String ChatHistoryBasePath = "serverFiles\\Chats\\Chat";
+	private final String ChatHistoryBasePath = "serverCode\\serverFiles\\Chats\\Chat";
 	
 	private messageFileEnterpreter mfe;
 	
@@ -129,12 +130,17 @@ public class databaseConnection {
             st.setLong(1, chatId);
             st.setLong(2, userId);
             st.setString(3, role);
-
-            st.executeUpdate();
-            return new SQLQueryResult(true, new String[] {});
+			
+			st.executeUpdate();
+            
+			
+			return new SQLQueryResult(true, new String[] {});
 
         } catch (SQLException e) {
-            return new SQLQueryResult(false, new String[] {"error", e.toString()});
+            
+			e.printStackTrace();
+			
+			return new SQLQueryResult(false, new String[] {"error", e.toString()});
         }
     }
 
@@ -200,4 +206,59 @@ public class databaseConnection {
             return new SQLQueryResult(false, new String[] {"error", e.toString()});
         }
     }
+	
+	public List<UserInterface> listChatsMembers(long chatID) {
+		String sql = """
+                SELECT user_id, display_name FROM chat_member JOIN app_user USING (user_id) WHERE chat_id = ?;
+                """;
+		
+		
+        try (PreparedStatement st = conn.prepareStatement(sql)) {
+            st.setLong(1, chatID);
+            ResultSet rs = st.executeQuery();
+            
+			
+			List<UserInterface> out = new ArrayList<UserInterface>();
+			
+			while (rs.next()) {
+				out.add(new User(rs.getString("display_name"), rs.getLong("user_id")));
+				
+            }
+			
+			return out;
+
+        } catch (SQLException e) {
+			
+			e.printStackTrace();
+			
+            return null;
+        }
+	}
+	
+	public List<Chat> getAvailableChats(long userID) {
+		String sql = """
+                select chat_id, chat_name from (select chat_id from chat_member except select chat_id from chat_member where user_id = ?) as chatIDs join chat using (chat_id);
+                """;
+		
+		
+        try (PreparedStatement st = conn.prepareStatement(sql)) {
+            st.setLong(1, userID);
+            ResultSet rs = st.executeQuery();
+            
+			List<Chat> out = new ArrayList<Chat>();
+			
+			while (rs.next()) {
+				out.add(new Chat(rs.getString("chat_name"), rs.getLong("chat_id")));
+				
+            }
+			
+			return out;
+
+        } catch (SQLException e) {
+			
+			e.printStackTrace();
+			
+            return null;
+        }
+	}
 }

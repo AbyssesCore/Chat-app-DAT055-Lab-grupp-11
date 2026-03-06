@@ -49,10 +49,9 @@ class LogInController {
 				return;
 			
 			try {
-				User u = mp.logIn(view.getLogInText(), view.getPasswordText());
 				
 				for (LogInObserver observer : updateOnLogIn)
-					observer.invokeOnLogIn(u);
+					observer.invokeLogIn(view.getLogInText(), view.getPasswordText());
 			}
 			catch (Exception err) {
 				err.printStackTrace();

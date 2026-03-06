@@ -9,18 +9,29 @@ import java.sql.*;
 import java.io.Serializable;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 
 class ServerModel {
 	ChatLister cl;
 	
-	HashSet<OnlineUser> onlineUsers = new HashSet<OnlineUser>();
+	Hashtable<Long, OnlineUser> onlineUsers = new Hashtable<Long, OnlineUser>();
 	
 	private databaseConnection dbConn;
 	
 	private Hashtable<Long, Timer> arrangedLogIns = new Hashtable<Long, Timer>();
 	
+	private messageDistributor md;
+	
+	private final long minimalQueueTime = 200;
+	
+	private long max(long a, long b) {
+		return a > b ? a : b;
+	}
+	
 	ServerModel () throws SQLException, ClassNotFoundException {
 		cl = new ChatLister();
+		
+		md = new messageDistributor();
 		
 		try {
 			dbConn = new databaseConnection();
@@ -28,18 +39,13 @@ class ServerModel {
 		}
 		catch (Exception e) {
 			e.printStackTrace();
+			return;
 		}
+		
 	}
 	
 	public OnlineUser getOnlineUserByID(long ID) {
-		for (OnlineUser u : onlineUsers) {
-			
-			if (u.getID() == ID) {
-				return u;
-			}
-		}
-		
-		return null;
+		return onlineUsers.get(ID);
 	}
 	
 	private UserInterface tryLogIn(String name, String password) {
@@ -74,7 +80,7 @@ class ServerModel {
 		
 		LocalDateTime timeNow = LocalDateTime.now();
 		
-		long ms = Duration.between(sendTime, timeNow).multipliedBy(4).toMillis();
+		long ms = max(Duration.between(sendTime, timeNow).multipliedBy(4).toMillis(), minimalQueueTime);
 		
 		Timer accesAlowensDeadline = new Timer();
 		
@@ -93,12 +99,16 @@ class ServerModel {
 		return u;
 	}
 	
-	public UserInterface logIn(String name, String password, InetAddress addr, int port)  {
+	public UserInterface logIn(String name, String password,  InetAddress addr, int port)  {
 		UserInterface u = tryLogIn(name, password);
+		
+		System.out.println("On log in: " + LocalDateTime.now());
 		
 		if (u == null) {
 			return null;
 		}
+		
+		System.out.println(arrangedLogIns);
 		
 		if (!arrangedLogIns.containsKey(u.getID())) {
 			return null;
@@ -106,7 +116,13 @@ class ServerModel {
 		
 		removeFromAccesAlowens(u.getID());
 		
-		onlineUsers.add(new OnlineUser(u, addr, port));
+		try {
+			onlineUsers.put(u.getID(), new OnlineUser(u, addr, port));
+		}
+		catch (MalformedURLException err) {
+			err.printStackTrace();
+			return null;
+		}
 		
 		System.out.println(onlineUsers);
 		
@@ -115,7 +131,7 @@ class ServerModel {
 	
 	public void logOut(long userID) {
 		
-		onlineUsers.remove(getOnlineUserByID(userID));
+		onlineUsers.remove(userID);
 		System.out.println(onlineUsers);
 	}
 	
@@ -174,11 +190,39 @@ class ServerModel {
 		return out;
 	}
 	
+	public List<UserInterface> getChatMembers(long chatID) {
+		return dbConn.listChatsMembers(chatID);
+	}
+	
 	public void sendTextMessage(long chatID, long userID, String msgContent) throws IOException {
 		
-		TextMessage msg = new TextMessage(getOnlineUserByID(userID), msgContent);
+		UserInterface u = getOnlineUserByID(userID);
 		
-		dbConn.saveMessage(chatID, msg);
+		if (u == null)
+			return;
+		
+		TextMessage msg = new TextMessage(u, msgContent);
+		
+		msg.setArrivleTime(LocalDateTime.now());
+		
+		if (msg == null)
+			return;
+		
+		SQLQueryResult res = dbConn.saveMessage(chatID, msg);
+		
+		if (!res.getResult())
+			return;
+		
+		
+		for (UserInterface member : dbConn.listChatsMembers(chatID)) {
+			
+			if (member.getID() == userID)
+				continue;
+			
+			OnlineUser resendTo = onlineUsers.get(member.getID());
+			
+			md.sendTextTo(resendTo, chatID, msg);
+		}
 	}
 	
 	public List<byte[]> getChatHistory(long chatID, LocalDateTime time) {
@@ -213,6 +257,16 @@ class ServerModel {
 		
 		System.out.println("Error: " + LocalDateTime.now());
 		
+	}
+	
+	public List<Chat> getAvailableChats(long userID) {
+		return dbConn.getAvailableChats(userID);
+	}
+	
+	public boolean addMember(long chatID, long userID) {
+		SQLQueryResult res = dbConn.addMember(chatID, userID, "reader");
+		
+		return res.getResult();
 	}
 }
 

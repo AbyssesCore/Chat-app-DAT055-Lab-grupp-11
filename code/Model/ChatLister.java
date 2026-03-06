@@ -40,6 +40,39 @@ class ChatLister {
 		return chatsToUserMap.keySet();
 	}
 	
+	public Chat getChatByID(long chatID, UserInterface u) {
+		for (Chat c : userIsPartOf(u)) {
+			
+			if (c.getID() == chatID) {
+				return c;
+			}
+		}
+		
+		return null;
+	}
+	
+	private Chat getAnyChatByID(long chatID) {
+		for (Chat c : getAllChats()) {
+			
+			if (c.getID() == chatID) {
+				return c;
+			}
+		}
+		
+		return null;
+	}
+	
+	public UserInterface getChatMemberByID(long chatID, long userID) {
+		
+		List<UserInterface> members = chatsToUserMap.get(getAnyChatByID(chatID));
+		
+		for (UserInterface u : members){
+			if (u.getID() == userID)
+				return u;
+		}
+		return null;
+	}
+	
 	public Chat createChat(UserInterface u, String ChatName, long id) {
 		Chat nc = new Chat(ChatName, id);
 		List<UserInterface> nui = new ArrayList<UserInterface>();
@@ -49,5 +82,9 @@ class ChatLister {
 		chatsToUserMap.put(nc, nui);
 		
 		return nc;
+	}
+	
+	public void loadChat(Chat c, List<UserInterface> users) {
+		chatsToUserMap.put(c, users);
 	}
 }

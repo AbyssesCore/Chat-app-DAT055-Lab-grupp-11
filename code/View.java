@@ -3,6 +3,8 @@ import javax.swing.border.*;
 import java.awt.*;
 import java.util.HashSet;
 
+import java.awt.Dimension;
+
 class View {
     private Model model;
 	
@@ -85,7 +87,18 @@ class View {
         name.setFont(name.getFont().deriveFont(Font.BOLD, 12f));
         name.setForeground(new Color(70, 75, 85));
 		
-		JComponent content = new JLabel("NOT IMPLEMENTED YET");
+		
+		ImgObject imgObj = msg.getImg();
+		
+		Dimension d = imgObj.getImgDimension();
+		
+		int widthLim = 300 > d.getWidth() ? (int)d.getWidth() : 300;
+		
+		double scale = widthLim / d.getWidth();
+		
+		int heightLim = (int)(d.getHeight() * scale);
+		
+		JComponent content = new JLabel( new ImageIcon(new ImageIcon(msg.getBufferedImage()).getImage().getScaledInstance(widthLim, heightLim, java.awt.Image.SCALE_SMOOTH)) );
 		content.setOpaque(false);
 		
         bubble.add(name);
@@ -115,7 +128,7 @@ class View {
     // -------------------------
     // Message rendering
     // -------------------------
-    public void addText(Message msg) {
+    public void renderMessage(Message msg) {
 		if (model == null)
 			return;
 		
@@ -149,7 +162,7 @@ class View {
         ui.removeAllMessages();
 		
         for (Message msg : model.getCurrentChatHistory()) {
-            addText(msg);
+            renderMessage(msg);
         }
 
         ui.revalidatedMessages();
@@ -191,7 +204,19 @@ class View {
 	}
 	
 	public String getInputText() {
-		return ui.getInputText();
+		String out = ui.getInputText();
+		
+		ui.clearInputText();
+		
+		return out;
+	}
+	
+	public String popChatNameText() {
+		String out = ui.getChatNameText();
+		
+		ui.clearChatNameText();
+		
+		return out;
 	}
 	
 	

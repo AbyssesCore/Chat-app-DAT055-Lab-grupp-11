@@ -9,6 +9,17 @@ import java.util.ArrayList;
 
 import java.util.Hashtable;
 
+import javax.swing.JFileChooser;
+
+import javax.imageio.ImageIO;
+
+import javax.swing.filechooser.FileFilter;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import java.io.File;
+import java.nio.file.NoSuchFileException;
+
+import java.awt.image.BufferedImage;
+
 class messageFileEnterpreter {
 	
 	protected static final Hashtable<String, messageConstructor> msgNameToConstructorMap = new Hashtable<String, messageConstructor>();
@@ -37,7 +48,7 @@ class messageFileEnterpreter {
 		
 		messageTranslater msgt = new messageTranslater();
 		
-		msgt.addLocalDateTime(LocalDateTime.now());
+		msgt.addLocalDateTime(msg.getCreateTime());
 		
 		msgt.addString(msg.getMsgType());
 		
@@ -47,11 +58,13 @@ class messageFileEnterpreter {
 		
 		msgt.addString(new String(msg.getContent()));
 		
-		String totalMessageLength = msgt.addLong(msgt.getMessageLength(), false);
+		byte[] totalMessageLength = msgt.addLong(msgt.getMessageLength(), false);
 		
 		try(FileOutputStream fos = new FileOutputStream(chatHistory, true)) {
 			
-			fos.write((totalMessageLength +  msgt.getMessage()).getBytes());
+			fos.write(totalMessageLength);
+			
+			fos.write(msgt.getMessage());
 		}
 		
 		return true;
@@ -68,7 +81,7 @@ class messageFileEnterpreter {
 		
 		msgt.addLocalDateTime(LocalDateTime.now());
 		
-		fos.write(msgt.getMessage().getBytes());
+		fos.write(msgt.getMessage());
 		
 		fos.close();
 	}
@@ -77,7 +90,7 @@ class messageFileEnterpreter {
 		File chatHistory = new File(folderPath + chatID);
 		
 		if (!chatHistory.exists()) {
-			throw new IOException("Chat wasn't created or chat history file was deleted on server-side: " + chatID);
+			throw new IOException("Chat wasn't created or chat history file was deleted on server-side: " + folderPath + chatID);
 		}
 		
 		List<byte[]> out = new ArrayList<byte[]>();
@@ -88,7 +101,7 @@ class messageFileEnterpreter {
 			
 			long msgLength = messageTranslater.translateLong(fis);
 			
-			while (msgLength != -1 && lastModifide.compareTo(msgSentTime) >= 0) {
+			while (msgLength != -1 && lastModifide.compareTo(msgSentTime) > 0) {
 				
 				String buffer = messageTranslater.translateString(fis);
 				
@@ -171,5 +184,46 @@ class messageFileEnterpreter {
 		msg.setArrivleTime(msgSentTime);
 		
 		return msg;
+	}
+	
+	public static File pickFile(FileNameExtensionFilter ... filters) throws NoSuchFileException {
+		// Source - https://stackoverflow.com/a/40255184
+		// Posted by matt, modified by community. See post 'Timeline' for change history
+		// Retrieved 2026-03-06, License - CC BY-SA 4.0
+		
+		JFileChooser chooser = new JFileChooser();
+		
+		for (FileNameExtensionFilter filter : filters)
+			chooser.setFileFilter(filter);
+		
+		int returnVal = chooser.showOpenDialog(null);
+		if(returnVal == JFileChooser.APPROVE_OPTION) {
+			return chooser.getSelectedFile();
+		}
+		
+		throw new NoSuchFileException("No file were selected");
+	}
+	
+	
+	public static ImgObject choseImgFile() throws NoSuchFileException, IOException, Exception {
+		File f = pickFile(new FileNameExtensionFilter("JPG & GIF Images", "jpg", "gif", "png"));
+		
+		
+		return new ImgObject( ImageIO.read( f ), getFilesExtension(f) );
+		
+	}
+	
+	private static String getFilesExtension(File f) throws Exception {
+		// Source - https://stackoverflow.com/a/3571239
+		// Posted by EboMike, modified by community. See post 'Timeline' for change history
+		// Retrieved 2026-03-06, License - CC BY-SA 3.0
+		
+		int i = f.getName().lastIndexOf('.');
+		if (i > 0) {
+			return  f.getName().substring(i+1);
+		}
+		else {
+			throw new Exception("Cant load img with out extension"); 
+		}
 	}
 }

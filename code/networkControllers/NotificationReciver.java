@@ -4,6 +4,8 @@ import java.io.*;
 
 import java.util.HashSet;
 
+import java.time.LocalDateTime;
+
 import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
@@ -17,29 +19,53 @@ class NotificationReciver {
 	public void startReciving()  throws Exception  {
 		clientSocket = HttpServer.create(new InetSocketAddress(0), 0);
 		
-		System.out.println("Port used: " + clientSocket.getAddress());
-		
-		clientSocket.createContext("/updateChat", (HttpExchange t) -> {
+		clientSocket.createContext("/updateTextChat", (HttpExchange t) -> {
 			InputStream is = t.getRequestBody();
-			byte[] bytes = new byte[is.available()];
 			
-			is.read(bytes, 0, is.available());
+			long senderID = messageTranslater.translateLong(is);
 			
+			long chatID = messageTranslater.translateLong(is);
+			
+			String textContent = messageTranslater.translateString(is);
+			
+			LocalDateTime sendTime = messageTranslater.translateLocalDateTime(is);
+			
+			System.out.println("From: " + senderID + " in " + chatID + " got " + textContent + " at " + sendTime);
 			
 			for (NotificationListener subscriber : subscribers)
-				subscriber.reciveChatUppdate(bytes);
+				subscriber.reciveChatTextUppdate(senderID, chatID, textContent, sendTime);
+			
+			t.sendResponseHeaders(200, 0);
+			
+			OutputStream os = t.getResponseBody();
+			os.close();
+			
+			
 		});
+		
+		clientSocket.start();
 	}
 	
 	public void stopReciving() {
 		clientSocket.stop(0);
+		
+		clientSocket = null;
+	}
+	
+	public InetSocketAddress getSocketAddres() {
+		if (!isActive())
+			return null;
+		
+		return clientSocket.getAddress();
+	}
+	
+	public boolean isActive() {
+		return clientSocket != null;
 	}
 	
 	public void addSubscriber(NotificationListener subscriber) {
 		if (subscriber == null)
 			return;
-		
-		System.out.println(subscriber);
 		
 		subscribers.add(subscriber);
 	}

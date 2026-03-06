@@ -1,3 +1,3 @@
 interface LogInObserver {
-	public void invokeOnLogIn(User u);
+	public void invokeLogIn(String username, String password);
 }

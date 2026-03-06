@@ -9,6 +9,9 @@ class LoggedInUI implements ChatUI {
 	private JTextArea input;
 	private JButton send;
 	private JButton logoutBtn;
+	private JButton joinChat;
+	private TextFieldWithPrompt chatName;
+	private JButton sendImg;
 	
 	private JPanel chatList;
 	private final JScrollPane messagesScroll;
@@ -25,6 +28,9 @@ class LoggedInUI implements ChatUI {
 		send = new JButton();
 		addChat = new JButton();
 		logoutBtn = new JButton();
+		joinChat = new JButton();
+		
+		sendImg = new JButton();
 		
 		messages = new JPanel();
         messages.setLayout(new BoxLayout(messages, BoxLayout.Y_AXIS));
@@ -72,6 +78,14 @@ class LoggedInUI implements ChatUI {
 		return send;
 	}
 	
+	public JButton getSendImgBtn() {
+		return sendImg;
+	}
+	
+	public JButton getJoinChatBtn() {
+		return joinChat;
+	}
+	
 	public JButton getAddChatBtn() {
 		return addChat;
 	}
@@ -82,6 +96,18 @@ class LoggedInUI implements ChatUI {
 	
 	public String getInputText() {
 		return input.getText();
+	}
+	
+	public void clearInputText() {
+		input.replaceRange("", 0, input.getText().length());
+	}
+	
+	public String getChatNameText() {
+		return chatName.getText();
+	}
+	
+	public void clearChatNameText() {
+		chatName.replaceRange("", 0, chatName.getText().length());
 	}
 	
 	// -------------------------
@@ -118,20 +144,33 @@ class LoggedInUI implements ChatUI {
         JLabel appTitle = new JLabel("Chats");
         appTitle.setFont(appTitle.getFont().deriveFont(Font.BOLD, 18f));
 
+		JPanel chatButtonList = new JPanel();
+		chatButtonList.setLayout(new GridLayout(1, 2, 10, 0));
+		chatButtonList.setBorder(new EmptyBorder(7, 5, 7, 5));
+        chatButtonList.setBackground(new Color(250, 250, 252));
+		
+		joinChat.setText("Join chat");
+		
+		chatButtonList.add(joinChat);
+		
+		styleHelper.styleGhostButton(joinChat);
+		
         addChat.setText("＋ New");
+		chatButtonList.add(addChat);
+		
         styleHelper.stylePrimaryButton(addChat);
 
         sideHeader.add(appTitle, BorderLayout.WEST);
-        sideHeader.add(addChat, BorderLayout.EAST);
-
-        // Optional search field (utseende-only)
-        JTextField search = new JTextField("New chat name");
-        search.setEnabled(false);
-        search.setBorder(new CompoundBorder(
+        
+		sideHeader.add(chatButtonList, BorderLayout.EAST);
+		
+        // Optional chatName field (utseende-only)
+        chatName = new TextFieldWithPrompt("New chat name");
+        chatName.setBorder(new CompoundBorder(
                 new LineBorder(new Color(220, 223, 228), 1, true),
                 new EmptyBorder(8, 10, 8, 10)
         ));
-        search.setBackground(Color.WHITE);
+        chatName.setBackground(Color.WHITE);
 
         JPanel sideTop = new JPanel();
         sideTop.setLayout(new BoxLayout(sideTop, BoxLayout.Y_AXIS));
@@ -142,7 +181,7 @@ class LoggedInUI implements ChatUI {
         JPanel searchWrap = new JPanel(new BorderLayout());
         searchWrap.setBackground(new Color(250, 250, 252));
         searchWrap.setBorder(new EmptyBorder(0, 14, 12, 14));
-        searchWrap.add(search, BorderLayout.CENTER);
+        searchWrap.add(chatName, BorderLayout.CENTER);
         sideTop.add(searchWrap);
 
         sidebar.add(sideTop, BorderLayout.NORTH);
@@ -225,10 +264,18 @@ class LoggedInUI implements ChatUI {
         inputScroll.setPreferredSize(new Dimension(0, 60));
 
         styleHelper.stylePrimaryButton(send);
-
+		
+		send.setText("Send");
         inputBar.add(inputScroll, BorderLayout.CENTER);
         inputBar.add(send, BorderLayout.EAST);
-
+		
+		styleHelper.stylePrimaryButton(sendImg);
+		
+		sendImg.setText("Send img");
+        inputBar.add(sendImg, BorderLayout.WEST);
+		
+		styleHelper.stylePrimaryButton(sendImg);
+		
         main.add(topBar, BorderLayout.NORTH);
         main.add(centerWrap, BorderLayout.CENTER);
         main.add(inputBar, BorderLayout.SOUTH);

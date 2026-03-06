@@ -1,3 +1,5 @@
+import java.time.LocalDateTime;
+
 interface NotificationListener {
-	public void reciveChatUppdate(byte[] NewMessageContent);
+	public void reciveChatTextUppdate(long senderID, long chatID, String textContent, LocalDateTime sendTime);
 }

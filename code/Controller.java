@@ -40,15 +40,31 @@ class Controller implements NotificationListener {
 		}
 	}
 	
-	public void reciveChatUppdate(byte[] NewMessageContent) {
-		
+	public void reciveChatTextUppdate(long senderID, long chatID, String textContent, LocalDateTime sendTime) {
+		try {
+			
+			TextMessage msg = new TextMessage(model.getChatMemberByID(chatID, senderID), textContent);
+			
+			msg.setArrivleTime(sendTime);
+			
+			model.loadMessageToChat(msg, chatID);
+			
+			if (model.getCurrentChatID() == chatID)
+				view.renderText(msg);
+		}
+		catch (Exception err) {
+			err.printStackTrace();
+		}
 	}
 	
-	public void addChatCreateEvent(JButton createChat) {
+	public void addChatCreateActionListener(JButton createChat) {
 		
 		createChat.addActionListener(e -> {
 			
-			String chatName = "Test chat";
+			String chatName = view.popChatNameText();
+			
+			if (chatName == null || chatName.isEmpty())
+				return;
 			
 			long chatID;
 			
@@ -63,13 +79,11 @@ class Controller implements NotificationListener {
 			
 			
 			if (chatID < 0) {
-				
 				System.out.println("Cant create a new chat: " + chatID);
-				
 				return;
 			}
 			
-			Chat nc = model.addChat(chatName, chatID);
+			Chat nc = model.createChat(chatName, chatID);
 			
 			addChatActionListener(view.addChat(chatName), nc);
 			
@@ -100,9 +114,75 @@ class Controller implements NotificationListener {
 		
 		send.addActionListener(e -> {
 			try {
-				mp.postMessage(model.getUser(), view.getInputText(), model.getCurrentChatID());
 				
-				view.addText(model.sendMessage(view.getInputText()));
+				String msgContent = view.getInputText();
+				
+				mp.postMessage(model.getUser(), msgContent, model.getCurrentChatID());
+				
+				view.renderText(model.sendMessage(msgContent));
+			}
+			catch (Exception err) {
+				err.printStackTrace();
+			}
+		});
+	}
+	
+	public void addSendImgEvent(JButton send, JFrame base) {
+		send.addActionListener(e -> {
+			try {
+				
+				ImgObject imgObj = messageFileEnterpreter.choseImgFile();
+				
+				mp.postImg(model.getUser(), imgObj, model.getCurrentChatID());
+				
+				view.renderImg(model.sendImage(imgObj));
+				
+			} catch (Exception err){
+				err.printStackTrace();
+			}
+		});
+	}
+	
+	public void addSelectJoinChatEvent(JButton join, JoinChatView jcv) {
+		join.addActionListener(e -> {
+			try {
+				
+				List<Chat> l = mp.getAvailableChats(model.getUser());
+				
+				System.out.println(l);
+				
+				jcv.clean();
+				
+				for (Chat c : l) {
+					JButton joinChatBtn = jcv.addChatToList(c);
+					
+					addJoinChatEvent(joinChatBtn, c);
+					
+					joinChatBtn.addActionListener(event -> {
+						
+						System.out.println("delete the row");
+						
+						jcv.deleteChatRowByID(c.getID());
+					
+					});
+				}
+				jcv.show();
+			}
+			catch (Exception err) {
+				err.printStackTrace();
+			}
+		});
+	}
+	
+	public void addJoinChatEvent(JButton join, Chat c) {
+		join.addActionListener(e -> {
+			try {
+				if (mp.joinChat(model.getUser(), c.getID())) {
+					addChatActionListener(view.addChat(c.getName()), c);
+					
+					chatSwapEvent(c);
+				}
+				
 			}
 			catch (Exception err) {
 				err.printStackTrace();
@@ -114,22 +194,34 @@ class Controller implements NotificationListener {
 		List<Chat> userChats = null;
 		
 		try {
-			userChats = mp.getAllUsersChats(model.getUser());
+			userChats = mp.getAllUserChats(model.getUser());
 		}
 		catch (Exception err) {
 			err.printStackTrace();
 			userChats = new ArrayList<Chat>();
 		}
 		
+		int successfulRenders = 0;
+		
 		for (Chat c : userChats) {
+			try {
+				model.loadChat(c, mp.getChatMembers(c.getID()));
+				
+			}
+			catch (Exception err) {
+				err.printStackTrace();
+				continue;
+			}
+			
 			addChatActionListener(view.addChat(c.getName()), c);
+			
+			successfulRenders++;
 		}
 		
-		if (userChats.size() > 0)
+		if (successfulRenders > 0)
 			chatSwapEvent(userChats.get(0));
 		
 		view.buildChatUI(u);
-		
 	}
 	
 	private void notifyLogOutObservers() {
@@ -146,4 +238,3 @@ class Controller implements NotificationListener {
 		logOutObservers.add(observer);
 	}
 }
-
