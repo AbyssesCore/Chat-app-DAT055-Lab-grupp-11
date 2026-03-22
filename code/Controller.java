@@ -130,7 +130,6 @@ class Controller implements NotificationListener {
 			return;
 		}
 		
-		
 		if (chatStatus >= 0) {
 			try {
 				view.loadChat();

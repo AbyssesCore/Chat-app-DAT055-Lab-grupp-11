@@ -222,7 +222,11 @@ class messageFileEnterpreter {
 			
 			long msgLength = messageTranslater.translateLong(fis);
 			
+			System.out.println("Isit more "  + lastModifide + " ? " + msgSentTime + " " + lastModifide.compareTo(msgSentTime));
+			
 			while (msgLength != -1 && lastModifide.compareTo(msgSentTime) > 0) {
+				
+				System.out.println("Isit more "  + lastModifide + " ? " + msgSentTime + " " + lastModifide.compareTo(msgSentTime));
 				
 				String buffer = messageTranslater.translateString(fis);
 				

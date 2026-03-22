@@ -83,8 +83,6 @@ class Model {
 	public void loadChat(Chat c, List<UserInterface> users) throws Exception {
 		
 		cl.loadChat(c, users);
-		
-		loadMessagesToChat(c.getID());
 	}
 	
 	public TextMessage sendMessage(String text) throws Exception {
@@ -143,7 +141,11 @@ class Model {
 		else {
 			msgList = mfe.loadMessages("Chat" + chatID, c.getLastMessageSendTime());
 			
+			System.out.println("Chat size: " + msgList + " " + c.getLastMessageSendTime());
+			
+			
 			if (msgList.size() > 0) {
+				 System.out.println(msgList.get(msgList.size() - 1).getCreateTime());
 				List<Message> newMessages = ifr.getChatHistory(chatID, msgList.get(msgList.size() - 1).getCreateTime());
 				
 				mfe.saveMessage("Chat" + chatID, newMessages);

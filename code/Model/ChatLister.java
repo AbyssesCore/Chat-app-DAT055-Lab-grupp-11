@@ -8,9 +8,9 @@ class ChatLister {
 		return chatsToUserMap.get(c);
 	}
 	
-	public List<Chat> userIsPartOf(UserInterface u) {
+	public Set<Chat> userIsPartOf(UserInterface u) {
 		
-		List<Chat> out = new ArrayList<Chat>();
+		Set<Chat> out = new HashSet<Chat>();
 		
 		for ( HashMap.Entry<Chat, List<UserInterface>> e : chatsToUserMap.entrySet() ) {
 			if (e.getValue().contains(u) ) {
