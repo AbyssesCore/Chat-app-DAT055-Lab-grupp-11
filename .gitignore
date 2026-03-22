@@ -1,1 +1,5 @@
 *.class
+
+code/clientFiles/
+
+code/serverCode/serverFiles/
