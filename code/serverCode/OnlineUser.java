@@ -1,27 +1,34 @@
-import java.net.InetSocketAddress;
+import java.net.URL;
 import java.net.InetAddress;
 
+import java.net.MalformedURLException;
+
 class OnlineUser implements UserInterface {
-	private InetSocketAddress contactAddress;
+	private URL contactAddress;
 	
 	final private long persId;
 	
 	public String name;
 	
-	OnlineUser(String username, long userID, InetAddress addr, int port) {
+	OnlineUser(String username, long userID, InetAddress addr, int port) throws MalformedURLException{
 		persId = userID;
 		
 		this.name = name;
 		
-		contactAddress = new InetSocketAddress(addr, port);
+		contactAddress = new URL("http:/" + addr + ":" + port);
+		
 	}
 	
-	OnlineUser(UserInterface u, InetAddress addr, int port) {
+	OnlineUser(UserInterface u, InetAddress addr, int port) throws MalformedURLException{
 		persId = u.getID();
 		
 		this.name = u.getName();
 		
-		contactAddress = new InetSocketAddress(addr, port);
+		contactAddress = new URL("http:/" + addr + ":" + port);
+	}
+	
+	public URL getURL(String addition) throws MalformedURLException {
+		return  new URL(contactAddress, "/" + addition);
 	}
 	
 	public long getID() {
@@ -44,6 +51,10 @@ class OnlineUser implements UserInterface {
 		OnlineUser otherUser = (OnlineUser) object;
 		
 		return otherUser.name.equals(this.name) && (otherUser.persId == this.persId) && this.contactAddress.equals(otherUser.contactAddress);
+	}
+	
+	public String toString() {
+		return "[UserID= " + persId + ", name= " + name + ", address= " + contactAddress + "]";
 	}
 	
 }

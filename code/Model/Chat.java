@@ -51,4 +51,8 @@ class Chat {
 		
 		return listOfMessages.get(listOfMessages.size() - 1).getCreateTime();
 	}
+	
+	public String toString() {
+		return "[ChatID= " + id + ", Chat name= " + chatName + "]";
+	}
 }

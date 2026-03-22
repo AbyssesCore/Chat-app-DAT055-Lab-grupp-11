@@ -18,10 +18,6 @@ class TextMessage implements Message {
 		this.createTime = msg.createTime;
 	}
 	
-	TextMessage() {
-		
-	}
-	
 	public UserInterface getUser() {
 		return u;
 	}
