@@ -32,4 +32,8 @@ class User implements UserInterface, Serializable {
 		
 		return otherUser.name.equals(this.name) && (otherUser.persId == this.persId);
 	}
+	
+	public String toString() {
+		return "[ UserID= " + persId + ", UserName= " + name + " ]";
+	}
 }

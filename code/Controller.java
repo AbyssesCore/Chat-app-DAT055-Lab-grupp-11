@@ -10,14 +10,15 @@ class Controller implements NotificationListener {
 	List<LogOutObserver> logOutObservers = new ArrayList<LogOutObserver>();
 	
 	public JButton logOutButton;
-	private MessagePublisher mp;
+	private Ipublisher mp;
 	
 	
 	
-	Controller(Model model, View view) {
+	Controller(Model model, View view, Ipublisher mp) {
 		this.view = view;
 		this.model = model;
-		this.mp = new MessagePublisher();
+		this.mp = mp;
+		
 	}
 	
 	public void addLogOutEvent(JButton logOutButton) {
@@ -57,6 +58,31 @@ class Controller implements NotificationListener {
 		}
 	}
 	
+	public void reciveChatImgUppdate(long senderID, long chatID, String imgName, LocalDateTime sendTime) {
+		try {
+			
+			ImgObject img;
+			
+			img = model.getImgObjectByName(imgName);
+			
+			ImgMessage msg = new ImgMessage(model.getChatMemberByID(chatID, senderID), img);
+			
+			msg.setArrivleTime(sendTime);
+			
+			model.loadMessageToChat(msg, chatID);
+			
+			if (model.getCurrentChatID() == chatID)
+				view.renderImg(msg);
+		}
+		catch (Exception err) {
+			err.printStackTrace();
+		}
+	}
+	
+	public void newChatMember(UserInterface newUser, long chatID) {
+		model.addMemberToChat(chatID, newUser);
+	}
+	
 	public void addChatCreateActionListener(JButton createChat) {
 		
 		createChat.addActionListener(e -> {
@@ -71,23 +97,22 @@ class Controller implements NotificationListener {
 			try {
 				chatID = mp.postNewChat(model.getUser(), chatName);
 				
+				if (chatID < 0) {
+					System.out.println("Cant create a new chat: " + chatID);
+					return;
+				}
+				
+				Chat nc = model.createChat(chatName, chatID);
+				
+				addChatActionListener(view.addChat(chatName), nc);
+				
+				chatSwapEvent(nc);
 			}
 			catch (Exception err) {
 				err.printStackTrace();
 				return;
 			}
 			
-			
-			if (chatID < 0) {
-				System.out.println("Cant create a new chat: " + chatID);
-				return;
-			}
-			
-			Chat nc = model.createChat(chatName, chatID);
-			
-			addChatActionListener(view.addChat(chatName), nc);
-			
-			chatSwapEvent(nc);
 		});
 	}
 	
@@ -96,12 +121,18 @@ class Controller implements NotificationListener {
 	}
 	
 	private void chatSwapEvent(Chat c) {
-		int chatStatus = model.selectChat(c);
+		int chatStatus;
+		
+		try {
+			chatStatus = model.selectChat(c);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return;
+		}
+		
 		
 		if (chatStatus >= 0) {
 			try {
-				model.loadMessagesToChat(mp.getChatHistory(model.getCurrentChatID(), model.getCurrentChatLastMessageSendTime() ));
-				
 				view.loadChat();
 			}
 			catch (Exception err) {
@@ -117,9 +148,11 @@ class Controller implements NotificationListener {
 				
 				String msgContent = view.getInputText();
 				
-				mp.postMessage(model.getUser(), msgContent, model.getCurrentChatID());
-				
-				view.renderText(model.sendMessage(msgContent));
+				if (msgContent.length() > 0) {
+					mp.postMessage(model.getUser(), msgContent, model.getCurrentChatID());
+					
+					view.renderText(model.sendMessage(msgContent));
+				}
 			}
 			catch (Exception err) {
 				err.printStackTrace();
@@ -133,7 +166,9 @@ class Controller implements NotificationListener {
 				
 				ImgObject imgObj = messageFileEnterpreter.choseImgFile();
 				
-				mp.postImg(model.getUser(), imgObj, model.getCurrentChatID());
+				String imgNewName = mp.postImg(model.getUser(), imgObj, model.getCurrentChatID());
+				
+				imgObj = model.saveLocalFileToCashe(imgObj, imgNewName);
 				
 				view.renderImg(model.sendImage(imgObj));
 				
@@ -147,9 +182,7 @@ class Controller implements NotificationListener {
 		join.addActionListener(e -> {
 			try {
 				
-				List<Chat> l = mp.getAvailableChats(model.getUser());
-				
-				System.out.println(l);
+				List<Chat> l = model.getAvailableUsersChats();
 				
 				jcv.clean();
 				
@@ -159,8 +192,6 @@ class Controller implements NotificationListener {
 					addJoinChatEvent(joinChatBtn, c);
 					
 					joinChatBtn.addActionListener(event -> {
-						
-						System.out.println("delete the row");
 						
 						jcv.deleteChatRowByID(c.getID());
 					
@@ -177,7 +208,12 @@ class Controller implements NotificationListener {
 	public void addJoinChatEvent(JButton join, Chat c) {
 		join.addActionListener(e -> {
 			try {
-				if (mp.joinChat(model.getUser(), c.getID())) {
+				
+				List<UserInterface> chatMembers = mp.joinChat(model.getUser(), c.getID());
+				
+				if (chatMembers != null && chatMembers.size() > 0) {
+					model.loadChat(c, chatMembers);
+					
 					addChatActionListener(view.addChat(c.getName()), c);
 					
 					chatSwapEvent(c);
@@ -194,7 +230,7 @@ class Controller implements NotificationListener {
 		List<Chat> userChats = null;
 		
 		try {
-			userChats = mp.getAllUserChats(model.getUser());
+			userChats = model.getUsersJointChats();
 		}
 		catch (Exception err) {
 			err.printStackTrace();
@@ -205,7 +241,7 @@ class Controller implements NotificationListener {
 		
 		for (Chat c : userChats) {
 			try {
-				model.loadChat(c, mp.getChatMembers(c.getID()));
+				model.loadChat(c);
 				
 			}
 			catch (Exception err) {
@@ -225,8 +261,6 @@ class Controller implements NotificationListener {
 	}
 	
 	private void notifyLogOutObservers() {
-		
-		System.out.println("quit");
 		
 		UserInterface u = model.getUser();
 		

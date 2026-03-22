@@ -6,6 +6,9 @@ import java.io.*;
 import java.awt.image.BufferedImage;
 import java.util.Arrays;
 
+import java.io.OutputStream;
+
+import javax.imageio.ImageIO;
 
 class messageTranslater {
 	
@@ -85,54 +88,65 @@ class messageTranslater {
 		return msgExtenshion;
 	}
 	
-	public byte[] addImg (ImgObject img) {
-		return addImg(img, true);
-	}
-	
-	public byte[] addImg(ImgObject img, boolean addToBody) {
+	public static byte[] addImgToStream(ImgObject img, OutputStream os) throws IOException{
 		byte msgBase = (byte)(0b11000000);
 		
-		byte[] msgExtenshion;
-		
-		byte[] imgContent = img.getImgBytes();
+		long fileLength = img.getImgPath().length();
 		
 		int offset = 1;
 		
-		if (imgContent.length < 32) {
-			msgBase |= imgContent.length;
+		FileInputStream fis;
+
+		try {
+			fis = new FileInputStream(img.getImgPath());
+		}
+		catch (Exception e) {
+			e.printStackTrace();
+			return new byte[0];
+		}
+		
+		byte[] msgDescription;
+		
+		if (fileLength < 32) {
+			msgBase |= fileLength;
 			
-			msgExtenshion = new byte[1 + imgContent.length];
+			msgDescription = new byte[] { msgBase };
 			
-			msgExtenshion[0] = msgBase;
+			os.write(msgBase);
 		}
 		else {
+			int bytesInLength = calcMinByteLength(fileLength);
 			
-			int bytesInLength = calcMinByteLength(imgContent.length);
+			msgDescription = new byte[bytesInLength + 1];
 			
 			msgBase |= 0b100000 | bytesInLength;
 			
-			msgExtenshion = new byte[1 + bytesInLength + imgContent.length];
+			msgDescription[0] = msgBase;
 			
-			msgExtenshion[0] = msgBase;
+			os.write(msgBase);
 			
-			byte[] longBytes = longBytesToByteArray(imgContent.length, bytesInLength);
+			byte[] longBytes = longBytesToByteArray(fileLength, bytesInLength);
 			
-			System.arraycopy(longBytes, 0, msgExtenshion, 1, bytesInLength);
+			os.write(longBytes);
 			
-			offset += bytesInLength;
+			System.arraycopy(longBytes, 0, msgDescription, 1, bytesInLength);
 		}
 		
-		System.arraycopy(imgContent, 0, msgExtenshion, offset, imgContent.length);
+		// Here we  break file into chunks
+		byte[] buffer = new byte[4 * 1024];
 		
-		if (addToBody) {
-			byte[] newMsg = Arrays.copyOf(msg, msg.length + msgExtenshion.length);
-			
-			System.arraycopy(msgExtenshion, 0, newMsg, msg.length, msgExtenshion.length);
-			
-			msg = newMsg;
+		int bytes;
+		
+		while ((bytes = fis.read(buffer)) != -1) {
+			// Send the file to Server Socket  
+			os.write(buffer, 0, bytes);
+			os.flush();
 		}
 		
-		return msgExtenshion;
+		// close the file here
+		fis.close();
+		
+		return msgDescription;
 	}
 	
 	
@@ -238,6 +252,24 @@ class messageTranslater {
 		return out;
 	}
 	
+	static public BufferedImage translateImg(InputStream is)  throws IOException {
+		int b = (int)is.read();
+		
+		if (b == -1 || ((b & 0b11000000) != 0b11000000)) {
+			return null;
+		}
+		long size = 0;
+		
+		for (int toRead = b & 0x1f; toRead > 0; toRead--) {
+			size = (size << 8) + is.read();
+			
+		}
+		
+		BufferedImage imgCont = ImageIO.read(is);
+		
+		return imgCont;
+	}
+	
 	public byte[] getMessage() {
 		return msg;
 	}
@@ -246,7 +278,7 @@ class messageTranslater {
 		return msg.length;
 	}
 	
-	private int calcMinByteLength(long x) {
+	private static int calcMinByteLength(long x) {
 		int i = 0;
 		
 		for (; x != 0; i++) {
@@ -258,7 +290,7 @@ class messageTranslater {
 	}
 	
 	
-	private byte[] longBytesToByteArray(long content, int endByte) {
+	private static byte[] longBytesToByteArray(long content, int endByte) {
 		byte[] out = new byte[endByte];
 		
 		int i = 0;

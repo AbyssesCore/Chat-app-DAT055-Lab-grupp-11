@@ -11,6 +11,11 @@ import java.io.Serializable;
 import java.io.IOException;
 import java.net.MalformedURLException;
 
+import java.awt.image.BufferedImage;
+
+import javax.imageio.ImageIO;
+import java.io.File;
+
 class ServerModel {
 	ChatLister cl;
 	
@@ -69,6 +74,10 @@ class ServerModel {
 		User u = new User(res.get("display_name"), Long.parseLong(res.get("userId")));
 		
 		return u;
+	}
+	
+	public boolean createUser(String username, String password, String displayName) {
+		return dbConn.createUser(username, displayName, password).getResult();
 	}
 	
 	public UserInterface arrangeLogIn(String name, String password, LocalDateTime sendTime) {
@@ -136,6 +145,7 @@ class ServerModel {
 	}
 	
 	public Chat createChat(long authorID, String chatName) {
+		
 		UserInterface u = getOnlineUserByID(authorID);
 		
 		if (u == null) {
@@ -219,7 +229,12 @@ class ServerModel {
 			if (member.getID() == userID)
 				continue;
 			
-			OnlineUser resendTo = onlineUsers.get(member.getID());
+			OnlineUser resendTo = getOnlineUserByID(member.getID());
+			
+			if (resendTo == null)
+				continue;
+			
+			System.out.println("From " + member.getID() + " got " + resendTo + " is online");
 			
 			md.sendTextTo(resendTo, chatID, msg);
 		}
@@ -263,10 +278,78 @@ class ServerModel {
 		return dbConn.getAvailableChats(userID);
 	}
 	
-	public boolean addMember(long chatID, long userID) {
-		SQLQueryResult res = dbConn.addMember(chatID, userID, "reader");
+	public List<UserInterface> addMember(long chatID, long userID) {
+		UserInterface joined = dbConn.addMember(chatID, userID, "reader");
 		
-		return res.getResult();
+		if (joined == null)
+			return null;
+		
+		List<UserInterface> chatMembers = dbConn.listChatsMembers(chatID);
+		
+		for (UserInterface member : chatMembers) {
+			
+			if (member.getID() == userID)
+				continue;
+			
+			OnlineUser resendTo = getOnlineUserByID(member.getID());
+			
+			if (resendTo == null)
+				continue;
+			
+			System.out.println("From " + member.getID() + " got " + resendTo + " is online");
+			
+			md.userJoinedChat(resendTo, chatID, joined);
+		}
+		
+		return chatMembers;
+	}
+	
+	public String sendImg(long chatID, long senderID, BufferedImage imgCont, String type) throws IOException {
+		
+		UserInterface u = getOnlineUserByID(senderID);
+		
+		if (u == null) {	
+			System.out.println("User is not online: " + senderID);
+			
+			return null;
+		}
+		
+		LocalDateTime creationTime = LocalDateTime.now();
+		
+		String fileName = Integer.toHexString(creationTime.getDayOfYear() * 24 * 3600 + creationTime.getHour() * 3600 + creationTime.getMinute() * 60 + creationTime.getSecond()) + Integer.toHexString(creationTime.getNano()) + "." + type;
+		
+		File imgPath = dbConn.saveImg(imgCont, fileName);
+		
+		ImgMessage msg = new ImgMessage(u, new ImgObject(imgPath));
+		
+		msg.setArrivleTime(creationTime);
+		
+		dbConn.saveMessage(chatID, msg);
+		
+		for (UserInterface member : dbConn.listChatsMembers(chatID)) {
+			
+			if (member.getID() == senderID)
+				continue;
+			
+			OnlineUser resendTo = getOnlineUserByID(member.getID());
+			
+			if (resendTo == null)
+				continue;
+			
+			md.sendImgTo(resendTo, chatID, msg);
+		}
+		
+		
+		return fileName;
+	}
+	
+	public ImgObject getImgObject(String imgName) {
+		try {
+			return dbConn.getFileRefference(imgName);
+		}
+		catch ( IOException err) {
+			return null;
+		}
 	}
 }
 

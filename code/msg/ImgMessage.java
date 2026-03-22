@@ -1,6 +1,9 @@
 import java.time.LocalDateTime;
 import java.awt.image.BufferedImage;
 
+import java.io.File;
+import java.io.IOException;
+
 // replace String -> Image class later when defined
 class ImgMessage implements Message {
 	private UserInterface u;
@@ -14,9 +17,9 @@ class ImgMessage implements Message {
 		this.img = img;
 	}
 	
-	ImgMessage(UserInterface u, BufferedImage img, String fileExtension) {
+	ImgMessage(UserInterface u, File imgPath, String fileExtension) {
 		this.u = u;
-		this.img = new ImgObject(img, type);
+		this.img = new ImgObject(imgPath);
 	}
 	
 	ImgMessage(ImgMessage msg) {
@@ -30,16 +33,12 @@ class ImgMessage implements Message {
 	}
 	
 	public byte[] getContent() {
-		return img.getImgBytes();
+		return img.getImgNamePart().getBytes();
 
 	}
 	
 	public ImgObject getImg() {
 		return img;
-	}
-	
-	public BufferedImage getBufferedImage() {
-		return img.getImgContent();
 	}
 	
 	public LocalDateTime getCreateTime() {

@@ -12,9 +12,11 @@ class Messanger implements LogInObserver, LogOutObserver {
 	
 	JFrame jf = new JFrame();
 	
-	logInUI ui;
+	IlogInUI ui;
 	
-	ChatUI chatUI;
+	createUserForm userFormView;
+	
+	IChatUI chatUI;
 	
 	Controller controller;
 	
@@ -46,13 +48,27 @@ class Messanger implements LogInObserver, LogOutObserver {
 		
 		liView = new LogInView(ui);
 		
-		mp = new MessagePublisher();
+		try {
+			mp = new MessagePublisher();
+		}
+		catch (Exception e){
+			e.printStackTrace();
+			return;
+		}
 		
-		liController =  new LogInController(liView, mp);
+		userFormView = new createUserForm(new CreateUserUI(jf));
+		
+		
+		liController = new LogInController(liView, userFormView, mp);
 		
 		liController.addLogInObserver(this);
 		
 		liController.addLogInEvent(ui.getLogInButton());
+		
+		liController.addShowCreateUserForm(liView.getCreateUserBtn());
+		
+		liController.addCreateUserEvent(userFormView.getCreateUserBtn());
+		
     }
 
     public static void main(String[] args) {
@@ -76,14 +92,13 @@ class Messanger implements LogInObserver, LogOutObserver {
 			nr.stopReciving();
 			return;
 		}
-		System.out.println("invoked log in " + u);
 		
 		chatUI = new LoggedInUI(jf);
 		
-		model = new Model(u);
+		model = new Model(u, mp);
 		view = new View(model, chatUI);
 		
-		controller = new Controller(model, view);
+		controller = new Controller(model, view, mp);
 		
 		nr.addSubscriber(controller);
 		
@@ -108,6 +123,11 @@ class Messanger implements LogInObserver, LogOutObserver {
 		chatUI.removeAllChats();
 		
 		liView.buildLoginUI();
+		
+		liController.addShowCreateUserForm(liView.getCreateUserBtn());
+		
+		
+		liController.addCreateUserEvent(userFormView.getCreateUserBtn());
 		
 		nr.stopReciving();
 		

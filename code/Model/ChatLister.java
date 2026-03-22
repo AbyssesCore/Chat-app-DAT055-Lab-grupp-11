@@ -64,6 +64,10 @@ class ChatLister {
 	
 	public UserInterface getChatMemberByID(long chatID, long userID) {
 		
+		System.out.println(chatID + " " + userID + " " + getAnyChatByID(chatID));
+		
+		System.out.println(chatsToUserMap);
+		
 		List<UserInterface> members = chatsToUserMap.get(getAnyChatByID(chatID));
 		
 		for (UserInterface u : members){
@@ -80,6 +84,8 @@ class ChatLister {
 		nui.add(u);
 		
 		chatsToUserMap.put(nc, nui);
+		
+		System.out.println(chatsToUserMap);
 		
 		return nc;
 	}

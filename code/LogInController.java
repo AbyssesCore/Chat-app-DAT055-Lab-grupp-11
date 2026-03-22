@@ -22,9 +22,12 @@ class LogInController {
 	
 	private List<LogInObserver> updateOnLogIn;
 	
-	LogInController(LogInView view, MessagePublisher mp) {
+	private createUserForm ufv;
+	
+	LogInController(LogInView view, createUserForm ufv, MessagePublisher mp) {
 		this.mp = mp;
 		this.view = view;
+		this.ufv = ufv;
 		
 		updateOnLogIn = new ArrayList<LogInObserver>();
 		
@@ -34,8 +37,6 @@ class LogInController {
 	public void addLogInEvent(JButton logIn) {
 		logIn.addActionListener(e -> {
 			int status = 0;
-			
-			System.out.println(view.getLogInText() + " " + view.getPasswordText());
 			
 			try {
 				status = mp.checkLogIn(view.getLogInText(), view.getPasswordText());
@@ -52,6 +53,48 @@ class LogInController {
 				
 				for (LogInObserver observer : updateOnLogIn)
 					observer.invokeLogIn(view.getLogInText(), view.getPasswordText());
+			}
+			catch (Exception err) {
+				err.printStackTrace();
+			}
+			
+		});
+	}
+	
+	public void addShowCreateUserForm(JButton showForm) {
+		showForm.addActionListener(e -> {
+			
+			System.out.println(ufv);
+			
+			ufv.showUI();
+		});
+	}
+	
+	public void addCreateUserEvent(JButton createUser) {
+		createUser.addActionListener(e -> {
+			int status = 0;
+			
+			String displayName = ufv.getDisplayNameText();
+			String userName = ufv.getUsernameText();
+			String password = ufv.getPasswordText();
+			
+			try {
+				status = mp.createUser(userName, password, displayName);
+			}catch (Exception err) {
+				err.printStackTrace();
+				
+				status = 500;
+			}
+			
+			if (status != 200)
+				return;
+			
+			ufv.hideUI();
+			
+			try {
+				
+				for (LogInObserver observer : updateOnLogIn)
+					observer.invokeLogIn(userName, password);
 			}
 			catch (Exception err) {
 				err.printStackTrace();
